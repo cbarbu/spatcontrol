@@ -1143,6 +1143,10 @@ adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,
     return(sdprop)
   }
 }
+# Example:
+# 	logsdTprop<-adaptSDProp(logsdTprop,acceptT)
+#	adaptOK<-adaptOK && attributes(logsdTprop)$noupdate
+
 setClass("cb.diag.out",representation(colAnalysed = "vector", geweke= "vector",limitGeweke="numeric",raftery="matrix"),contains="data.frame")
 
 gibbsit <- function(data, varnames = NULL, q = 1/40, r =
