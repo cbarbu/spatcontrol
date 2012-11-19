@@ -1,4 +1,4 @@
-source("extrapol_field.R")
+source("spatcontrol.R")
 graphics.off()
 samples<-trace.mcmc()
 estimates<-posteriors.mcmc(samples=samples)
