@@ -271,7 +271,7 @@ filter.spam<-function(A,maxtobesetnull){
 	return(as.spam(A));
 }
 }else{
-	cat("\nWARNING filter_spam.so not available, will use pure R code, may be slower.\n")
+	cat("\nWARNING spatcontrol.so not available, will use pure R code, may be slower.\n")
 	filter.spam<-function(A,maxtobesetnull){
 		A@entries[A@entries>maxtobesetnull]<- 0
 		return(A);
