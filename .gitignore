@@ -4,3 +4,5 @@ ypsamples.txt
 betasamples.txt
 filter_spam.so
 useC2.so
+output.lst
+.Rhistory

@@ -1,0 +1,66 @@
+
+R version 2.14.1 (2011-12-22)
+Copyright (C) 2011 The R Foundation for Statistical Computing
+ISBN 3-900051-07-0
+Platform: i486-pc-linux-gnu (32-bit)
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+.Rprofile: Setting UK repository
+[Previously saved workspace restored]
+
+> # this is the gibbs/MH hasting sampler, on both generated or true data:
+> # with cofactors or not
+> graphics.off()
+> INTERMEDIARY<-FALSE
+> 
+> source("parameters_sampler.r")
+Package 'spam' is loaded. Spam version 0.28-0 (2012-01-11).
+Type demo( spam) for some demos, help( Spam) for an overview
+of this package.
+Help for individual functions is optained by adding the
+suffix '.spam' to the function name, e.g. 'help(chol.spam)'.
+
+Attaching package: ‘spam’
+
+The following object(s) are masked from ‘package:base’:
+
+    backsolve, forwardsolve, norm
+
+> source("functions_intercept.r")
+Loading required package: survival
+Loading required package: splines
+Hmisc library by Frank E Harrell Jr
+
+Type library(help='Hmisc'), ?Overview, or ?Hmisc.Overview')
+to see overall documentation.
+
+NOTE:Hmisc no longer redefines [.factor to drop unused levels when
+subsetting.  To get the old behavior of Hmisc type dropUnusedLevels().
+
+
+Attaching package: ‘Hmisc’
+
+The following object(s) are masked from ‘package:survival’:
+
+    untangle.specials
+
+The following object(s) are masked from ‘package:base’:
+
+    format.pval, round.POSIXt, trunc.POSIXt, units
+
+> source("pseudo_data_generation.r")
+
+Execution halted
