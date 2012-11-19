@@ -208,7 +208,7 @@ apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	return(results);
 }
 
-importOk<-try(dyn.load("useC2.so"),silent=TRUE)
+importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)!="try-error"){
 	random_spam_entries_by_row<-function(A){
 		# randomly exchange the *defined entries* of a spam matrix by rows
@@ -259,8 +259,6 @@ SpecificMultiply.spam<-function(f,mat,indexMat){
 		return(mat+indexMat*mat*(f-1))
 	}
 }
-
-importOk<-try(dyn.load("filter_spam.so"),silent=TRUE)
 
 # change all entries in A bigger than maxtobesetnull to 0
 if(class(importOk)!="try-error"){
