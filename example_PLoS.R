@@ -10,10 +10,11 @@ source("extrapol_field.R",local=TRUE)
 # Data preparation
 #==================
 # simulation name (for use with sec_launch.sh)
-nameSimul<-"exp_real_trial"
+nameSimul<-"firstFullOnGenerated"
 
 # effect of streets assessment on Paucarpata (Barbu 2012)
-db<-read.csv("OriginalDataPaucarpata.csv")
+# db<-read.csv("OriginalDataPaucarpata.csv")
+db<-read.csv("JitteredDataPaucarpata.csv")
 # Nota: the format of these data is not "perfect" on purpose
 #       to remind important "checks" in the cleaning up of data
 #       in addition, duplicates should be avoided as the behavior 
@@ -32,6 +33,8 @@ db<-changeNameCol(db,"infested","positive")
 db<-changeNameCol(db,"open","observed")
 db<-changeNameCol(db,"cityBlockNum","GroupNum")
 db<-changeNameCol(db,"inspector","IdObserver")
+
+db$positive[which(is.na(db$positive))]<-0
 
 # overview
 plot(db$X,db$Y,col=db$fitSet+1,asp=1)
@@ -53,7 +56,19 @@ legend("bottomleft",c("fitting dataset","validation dataset","infested"),col=c("
 # fit the spatial autocorrelation and extrapol to non-observed 
 # in the testing set
 set.seed(777) # to be able to reproduce the results
-dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=TRUE)
+
+# # fit only the cofactors, with a random error term
+# Don't do that as it has no intercept yet
+# dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1 & db$observed==1),-which(names(db) %in% c("GroupNum","IdObserver","X","Y"))],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
+
+
+# Full
+dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=61,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
+
+samples<-trace.mcmc()
+estimates<-posteriors.mcmc(samples=samples,dbFit=dbFit)
+summary.spatcontrol(estimates=estimates)
+
 
 ##### visualizing maps
 par(mfrow=c(2,3))
@@ -62,6 +77,7 @@ plot_reel(dbFit$X,dbFit$Y,dbFit$p.i,base=0,top=1,main="Probability of being posi
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.u,base=0,top=1,main="Estimated spatial component")
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.v+dbFit$est.c,base=0,top=1,main="Estimated non-spatial component")
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.obs,base=0,top=1,main="Estimated observation quality")
+
 
 # #=======================
 # # Generation parameters
