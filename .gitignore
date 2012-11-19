@@ -2,7 +2,7 @@ wsamples.txt
 usamples.txt
 ypsamples.txt
 betasamples.txt
-filter_spam.so
-useC2.so
+*.so
 output.lst
 .Rhistory
+*.o
