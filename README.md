@@ -3,6 +3,18 @@ spatcontrol
 
 This package aims at exploring the determinants of spatial data. It focuses on complex spatial patterns: influence of known barriers on the dispersion/spatial autocorrelation, multiple spatial scale, etc... 
 
+Installation:
+-------------
+Simply put extrapol\_field.R and source it to allow to use the functions:
+```
+source("extrapol_field.R")
+```
+In addition, substantial computation time can be saved when using large datasets by using the attached C code: 
+R CMD SHLIB spatcontrol.r
+
+Main fonctionalities and examples:
+----------------------------------
+
 Functions are in extrapol\_field.R. Example of the use of the main functionalities are given the in the example\_\* files:
 - how to generate spatially autocorrelated data in example\_generation.R with gen.map
 - how to compute structured autocorrelograms to examine the impact of known barriers on presence absence data in example\_structuredMI.R. 
@@ -14,7 +26,10 @@ Other utility functions can be found in extrapol\_field.R, organized into chapte
 - Map generation
 - Functions specific to the GMRF
 
+Credits and 
+This package is maintained by Corentin Barbu currently at University of Pennsylvania in MZ Levy lab.
+
 The spatcontrol package is under development at the github repository: 
 https://github.com/cbarbu/spatcontrol 
 
-Participation are welcome through forking and pull request in GitHub. The aim is to contribute this work and others at R CRAN package. 
+Participation are welcome through forking and pull request in GitHub. The code will at some point be shared in part or fully as a CRAN package.

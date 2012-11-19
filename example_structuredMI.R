@@ -1,4 +1,4 @@
-source("extrapol_field.R",local=TRUE)
+source("spatcontrol.R",local=TRUE)
 
 db<-read.csv("OriginalDataPaucarpata.csv")
 # avoid a number of miscodifications

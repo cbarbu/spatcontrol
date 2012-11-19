@@ -1,4 +1,4 @@
-source("extrapol_field.R")
+source("spatcontrol.R")
 nameSimul<-"FullonGen"
 db<-read.csv("JitteredDataPaucarpata.csv")
 # avoid a number of miscodifications

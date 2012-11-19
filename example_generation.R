@@ -1,4 +1,4 @@
-source("extrapol_field.R",local=TRUE)
+source("spatcontrol.R",local=TRUE)
 db<-read.csv("OriginalDataPaucarpata.csv")
 db<-set_to(db,init=c("NULL"),final=0)
 db<-db[which(!is.na(db$easting)),]
