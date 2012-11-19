@@ -3,8 +3,7 @@
  *
  *       Filename:  spatcontrol.c
  *
- *    Description:  
- *		complements to spam package
+ *    Description:  C functions for spatcontrol.R
  *    		should be compiled by:
  *    		R CMD SHLIB spatcontrol.c
  *
@@ -70,7 +69,6 @@ void specific_multiply(int *pdim,double *entries_dm,int *pnb_ent_dm,int *rpoint_
 			entries_dm[k]=entries_dm[k]* *f;
 		}
 	}
-	
 }
 
 // for a given Delta recalculate Dmat
