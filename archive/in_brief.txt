@@ -1,0 +1,7 @@
+mean T: 1.373408 
+mean f: 17.14286 
+mean Ku: 1.13985 
+mean Kv: 2.977812 
+mean final u: -0.2462724 
+mean final v: -0.008541839 
+mean final y: -0.481695 
