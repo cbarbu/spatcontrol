@@ -3198,6 +3198,9 @@ extrapol.spatautocorel<-function(...){
   return(fit.spatautocorel(...,fit.spatstruct=FALSE))
 }
 
+#--------------------------------
+# Chains analysis/visualization
+#--------------------------------
 cut.burnIn<-function(dbFit=NULL,samplesDB){
   if(!is.null(dbFit) && length(samplesDB)>0){
     # check that sampled not already chopped 
