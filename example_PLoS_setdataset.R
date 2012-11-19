@@ -1,4 +1,5 @@
 ## get to minimal, publishable dataset
+source("extrapol_field.R")
 db<-read.csv("DB_simple_Pau_cyclo1_19Jul2011_blockSize.csv",header=TRUE);
 db<-db[order(db$easting,db$northing,db$status,db$collector),]
 
@@ -29,5 +30,4 @@ dup<-which(duplicated(cbind(db.small$easting,db.small$northing)))
 db.small<-db.small[-dup,]
 
 write.csv(db.small,"OriginalDataPaucarpata.csv",row.names=FALSE)
-
 

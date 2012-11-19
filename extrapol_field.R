@@ -174,7 +174,6 @@ expect_true(all(calcLLPhilly-latlongPhilly<10e-6))
 expect_true(all(calcUtmPhilly-utmPhilly<1))
 
 
-
 #--------------------------------------
 # Functions extending spam capabilities
 #--------------------------------------
@@ -352,12 +351,26 @@ pseudo_inv<-function(A){
 #--------------------------------------
 # Plotting
 #--------------------------------------
-class.colors<-function(C){
+strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","purple","yellow","grey","orange","slategrey","navyblue","darkgreen")
+
+plot.palette<-function(colVect=palette()){
+  N<-length(colVect)
+  plot(1:N,1:N,type="n")
+  abline(v=1:N,col=colVect,lty=1)
+}
+# Ex: plot.palette(strongColors)
+# 
+#     or equivalently
+# 
+#     palette(strongColors)
+#     plot.palette()
+
+class.colors<-function(C,colVect=colors()){
   # return a vector of colors corresponding to the values of C understood
   # as classes 
   # allow call in plot(...,col=class.colors(C))
   Cc<-as.factor(C)
-  couleurs<-sample(colors(),length(levels(Cc)),replace=TRUE)
+  couleurs<-sample(colVect,length(levels(Cc)),replace=TRUE)
   return(couleurs[Cc])
 }
 plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
@@ -596,7 +609,7 @@ moran.spam<-function(dmt,values){
 	# values the values for each location
 
 	# correction of dmt for correct calculus of I
-	dim_mp<-length(data_non_NA[,1])
+	dim_mp<-length(values)
 	one_vect<-rep(1,dim_mp)
 	#need 0 on the diagonal of weight
 	diag(dmt)<-0
@@ -659,11 +672,12 @@ gen.mats.neigh<-function(distances,x,y,group=NULL){
 		}
 	}
 	cat("\n")
+	attributes(mats_neigh)$breaks<-distances
 	return(mats_neigh)
 }
 
 # compute structured morans I 
-structured.moransI<-function(distances,mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE,rand.sym=FALSE){
+structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE,rand.sym=FALSE){
 	# distances: breaks for the classes of distance to be tested for Moran's I
 	# mats_neigh: for each class of distances the matrices of neighborhood (general, same block, different blocks)
 	# values: analysed values
@@ -683,6 +697,7 @@ structured.moransI<-function(distances,mats_neigh=NULL,raw.values,nb_rep_sign=0,
 	}else{
 		values<-raw.values
 	}
+	breaks<-attributes(mats_neigh)$breaks
 	if(length(mats_neigh[[2]])==3){
 		include_streets_anal<-TRUE
 	}else{
@@ -694,14 +709,14 @@ structured.moransI<-function(distances,mats_neigh=NULL,raw.values,nb_rep_sign=0,
 	mI2 <- list() ; # list of moran test results in blocks
 	mI3 <- list() ; # list of moran test results across streets
 	difft<-NULL;
-	nb_neigh<-mat.or.vec(length(distances),3)
+	nb_neigh<-mat.or.vec(length(breaks),3)
 
 	if(nb_rep_sign>0){
-		difft<-mat.or.vec(length(distances),nb_rep_sign)
+		difft<-mat.or.vec(length(breaks),nb_rep_sign)
 	}
-	for (i in 2:(length(distances))){
-		limiteinf=distances[i-1];
-		limitesup=distances[i];
+	for (i in 2:(length(breaks))){
+		limiteinf=breaks[i-1];
+		limitesup=breaks[i];
 		cat("\nlimiteinf=",limiteinf,"limitesup=",limitesup);
 		# NB: any function can be put in the glist argument of nb2listw
 
@@ -717,7 +732,6 @@ structured.moransI<-function(distances,mats_neigh=NULL,raw.values,nb_rep_sign=0,
 		if(include_streets_anal){
 			if(length(zNA)>0){
 				SBrtrue<-mats_neigh[[i]][[2]][zNoNA,zNoNA]
-
 			}else{
 				SBrtrue<-mats_neigh[[i]][[2]]
 			}
@@ -752,15 +766,23 @@ structured.moransI<-function(distances,mats_neigh=NULL,raw.values,nb_rep_sign=0,
 		}
 	}
 	cat("\n")
-	return(list(mI1=mI1,mI2=mI2,mI3=mI3,difft=difft,nb.neigh=nb_neigh))
+	sMI<-list(mI1=mI1,mI2=mI2,mI3=mI3,difft=difft,nb.neigh=nb_neigh)
+	attributes(sMI)$breaks<-breaks
+	return(sMI)
 }
 legend_position<-NULL
-plot.structured.moransI<-function(distances,mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
+plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
+  	breaks<-attributes(mI)$breaks
 	mI1<-mI[[1]]
 	if(length(mI[[2]])>0){
 		mI2<-mI[[2]]
 		mI3<-mI[[3]]
 		include_streets_anal<-TRUE
+		if(!is.null(mI[[4]])){
+		  plot.signif<-TRUE
+		}else{
+		  plot.signif<-TRUE
+		}
 	}else{
 		include_streets_anal<-FALSE
 	}
@@ -772,7 +794,7 @@ plot.structured.moransI<-function(distances,mI,add=FALSE,neigh.struct=FALSE,plot
 	med_position = {}
 	legend_position = {}
 	for (i in 1:length(mI1)){
-		med_position=c(med_position,distances[i]-eval(parse(text=(names(mI1[i]))))/2);
+		med_position=c(med_position,breaks[i]-eval(parse(text=(names(mI1[i]))))/2);
 		legend_position=c(legend_position,names(mI1[i]));
 		morans_I1 = c(morans_I1,mI1[[i]])
 		if(include_streets_anal){
@@ -781,27 +803,31 @@ plot.structured.moransI<-function(distances,mI,add=FALSE,neigh.struct=FALSE,plot
 		}
 	}
 
-	# pdf(file="moran_fn_dist_intrablock.pdf",width=8.5,height=7);
+	plot.mI<-list(mI1=morans_I1,mI2=morans_I2,mI3=morans_I3,med_position=med_position)
+
 	if(plot){
-		if(add==FALSE){
-			plot(c(distances[1],distances[(length(distances))]),c(0.8*min(morans_I1,morans_I2,morans_I3),1.1*max(morans_I1,morans_I2,morans_I3)),type='n',xaxt='n',xlab="distances (m)",ylab="Morans's I")
-			axis(1,at=med_position,labels=legend_position)
-		}
-		lines(med_position,morans_I1,col=1) # black general
-		if(include_streets_anal){
-			lines(med_position,morans_I2,col=4) # blue within blocks
-			lines(med_position,morans_I3,col=2) # red inter blocks
-			if(!is.null(mI[[4]])){
-				plot.signif.structured.moransI(med_position,mI[[4]],morans_I1,morans_I2,morans_I3,legend_position)
-			}
-		}
+	  if(add==FALSE){
+	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3),1.1*max(morans_I1,morans_I2,morans_I3)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Morans's I")
+	    axis(1,at=med_position,labels=legend_position)
+	  }
+	  lines(med_position,morans_I1,col=1) # black general
+	  if(include_streets_anal){
+	    lines(med_position,morans_I2,col=4) # blue within blocks
+	    lines(med_position,morans_I3,col=2) # red inter blocks
+	    legend("topright",c("Intra block","General","Inter blocks"),col=c("blue","black","red"),lty=1)
+	    if(plot.signif){
+	      dev.new()
+	      plot.signif.structured.moransI(med_position,mI[[4]],morans_I1,morans_I2,morans_I3,legend_position)
+	    }
+	  }
 	}
 		
-	# dev.off();
 	legend_position<<-legend_position;
-	return(list(mI1=morans_I1,mI2=morans_I2,mI3=morans_I3,med_position=med_position))
+	attributes(plot.mI)$breaks<-breaks
+
+	return(invisible(plot.mI))
 }
-plot.signif.structured.moransI<-function(med_position,difft,morans_I1,morans_I2,morans_I3,legend_position,main=NULL,pch=3,col=4,xlab="distance (m)",ylab=expression(paste(I[sg],"-",I[dg])),...){
+plot.signif.structured.moransI<-function(med_position,difft,morans_I1,morans_I2,morans_I3,legend_position,main=NULL,pch=3,col=4,xlab="Distance class (m)",ylab=expression(paste(I[sg],"-",I[dg])),...){
 	## plot diff AS/SB
 	diffr<-morans_I2-morans_I3
 	nb_rep_sign<-dim(difft)[2]
@@ -829,17 +855,35 @@ get.med.position.axis<-function(distances){
 	axis(1,at=seq(1:length(left.lim)), lab=labels.axis)
 	return(med.position)
 }
-zgenHighLevel<-function(est.detection,zNA,est.Q=NULL,est.Kv=NULL,est.Ku=NULL,est.mu=NULL,est.c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE){
-	dimension<-length(est.detection)
+zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE){
+  # generate the positiveness according to estimates
+  # Necessary:
+  # detection: quality of detection for each point
+  # zNA: indices of the the non-observed  
+
+  # Recommended:
+  # Q: spatial precision matrix between points (necessary if including a spatial component)
+  # Kv: estimated non-spatial precision
+  # Ku: estimated spatial precision factor
+  # mu: estimated mean of the spatial field
+  # c.comp: estimated cumulated effect of the cofactors (per point)
+
+  # Not recommended but for testing purposes:
+  # est.v: fixed estimated non-spatial component of the field (per point)
+  # est.u: fixed estimated spatial component of the filed (per point)
+  # est.w: fixed estimated field (per point, if given everything above is ignored)
+  # force.mu: force the mean of the non-spatial component to be at the given mu value
+
+	dimension<-length(detection)
 	u.p<-rep(0,dimension)
 	c.p<-rep(0,dimension)
 	v.p<-rep(0,dimension)
 	if(is.null(est.w)){
 		if(is.null(est.u)){
-			if(!is.null(est.Ku) && !is.null(est.Q) && !is.null(est.mu)){
-				u.p <- drop(rmvnorm.prec.pseudo(n=1, mu=rep(est.mu,dimension), Q=est.Ku*est.Q));
+			if(!is.null(Ku) && !is.null(Q) && !is.null(mu)){
+				u.p <- drop(rmvnorm.prec.pseudo(n=1, mu=rep(mu,dimension), Q=Ku*Q));
 				if(force.mu){
-					u.p <-(u.p-mean(u.p)+est.mu)
+					u.p <-(u.p-mean(u.p)+mu)
 				}
 				cat("mean u.p",mean(u.p),"sd u.p",sd(u.p),"\n")
 			}else{
@@ -848,20 +892,20 @@ zgenHighLevel<-function(est.detection,zNA,est.Q=NULL,est.Kv=NULL,est.Ku=NULL,est
 		}else{
 			u.p<-est.u
 		}
-		if(!is.null(est.c.comp)){
-			c.p<-est.c.comp
-			cat("mean c.p",mean(est.c.comp),"sd c.p",sd(drop(est.c.comp)),"\n")
+		if(!is.null(c.comp)){
+			c.p<-c.comp
+			cat("mean c.p",mean(c.comp),"sd c.p",sd(drop(c.comp)),"\n")
 		}else{
 			cat("Use no c component\n");
 		}
 		if(is.null(est.v)){
-			if(!is.null(est.Kv)){
-				Qvp<-diag.spam(est.Kv,dimension)
+			if(!is.null(Kv)){
+				Qvp<-diag.spam(Kv,dimension)
 				if(is.null(est.v)){
 					est.v<-rep(0,dimension)
 				}
 				v.p <- drop(rmvnorm.prec.pseudo(n=1, mu=est.v, Q=Qvp));
-				cat("length v.p",length(v.p),"(",dimension,") mean v.p",mean(v.p),"sd v.p",sd(v.p),"\n")
+				cat("mean v.p",mean(v.p),"sd v.p",sd(v.p),"\n")
 			}else{
 				cat("Use no v component\n");
 			}
@@ -875,10 +919,124 @@ zgenHighLevel<-function(est.detection,zNA,est.Q=NULL,est.Kv=NULL,est.Ku=NULL,est
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
 	cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
-	z.p <-generate_z(y.p,est.detection,zNA)
+	z.p <-generate_z(y.p,detection,zNA)
 	cat("mean z.p",mean(z.p[!is.na(z.p)]),"\n")
+
 	return(list(z=z.p,y=y.p,w=w.p,v=v.p,c=c.p,u=u.p))
 }
+gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01){
+  # simpler wrapper calling zgen
+  # for map generations
+
+  # db: data.frame with in columns at least the X,Y of the points
+  # Ku: spatial component precision factor
+  # Kv: non-spatial component precision factor
+  # f: characteristic distance of the kernel
+  # T: factor for streets (<1 => barrier effect of streets) imply 
+  #    the presence of a GroupNum column in db
+  # kern: the kernel to use (expKernel,gaussianKernel, cauchyKernel or geometricKernel). If f and T have been estimated the kernel here should correspond to the one used to estimate them.
+  # obs.qual: vector of the quality of the observers, default to 1 (all perfect). It can be set to a real in [0,1], applied to all points; a vector the same length than db, each then applied to its point; or be a vector with named values corresponding to the levels in db$IdObserver, then applied to these same Observers. In the last case, if observers do not have an estimate in obs.qual there value is fixed to the mean of obs.qual
+
+  nPoints<-dim(db)[1]
+  # get the Q precision matrix
+  cat("Generating the distance matrix...\n")
+  dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
+  diag(dist_mat)<- rep(0,dim(dist_mat)[1])
+  dbout<-db[,c("X","Y")]
+
+  # Missing information
+  if(randomizeNA){
+    cat("Generating missingness...\n")
+    nNA<-sum(db$observed==0)
+    zNA<-sample(nNA,1:nPoints)
+  }else{
+    cat("Keeping missingness\n")
+    zNA<-which(db$observed==0)
+  }
+  dbout$observed<-rep(0,dim(dbout)[1])
+  dbout$observed[-zNA]<-1
+
+  # spatial groupings
+  if(!is.null(db$GroupNum)){
+    dbout$GroupNum<-db$GroupNum # cannot generate that yet
+    cat("Keeping the barriers structure\n")
+    SB <- nearest.dist(x=cbind(db$GroupNum,rep(0,length(db$GroupNum))), method="euclidian", upper=NULL,delta=0.1)
+    SB@entries<-rep(1,length(SB@entries))
+
+    dmt<-dist_mat
+    dmt@entries<-rep(1,length(dmt@entries))# [dmt@entries!=0]<-1 # 1 only when dist_mat not 0
+    SB<-as.spam(SB*dmt);
+  }else{
+    if(T!=1){
+      stop("T !=1 and no GroupNum in db. Aborting gen.mat().\n")
+    }
+    SB<-1
+  }
+  Q<-QfromfT(dist_mat,SB,f,T,kern=kern,addeps=epsilon)
+
+  # cofactors
+  if(is.null(c.val)){
+    c.comp<-NULL
+  }else{
+    cat("Keeping the cofactors structure\n")
+    cofs<-names(c.val)
+    c.map<-as.matrix(db[,cofs])
+    dbout<-cbind(dbout,db[,cofs])
+    c.comp<-drop(c.map%*%c.val)
+  }
+
+  # get the observation quality vector
+  dbout$IdObserver<-db$IdObserver
+  if(length(obs.qual)==nPoints){
+    cat("Keeping observation quality\n")
+    obs.vect<-obs.qual
+  }else if(length(obs.qual)==1){
+    cat("Uniform observation quality:",obs.qual,"\n")
+    obs.vect<- rep(obs.qual,nPoints)
+  }else if(!is.null(names(obs.qual))){
+    cat("Generating observation quality on IdObserver structure\n")
+    if(is.null(db$IdObserver)){
+      cat("Missing IdObserver in db. Abort.\n")
+      return(NULL)
+    }
+    # make index of observers each with its sensitivity (ObsValues)
+    ObsNames<-levels(as.factor(db$IdObserver))
+    ObsValues<-rep(0,length(ObsNames))
+    names(ObsValues)<-ObsNames
+    ObsValues[names(obs.qual)]<-obs.qual
+    ObsValues[setdiff(ObsNames,names(obs.qual))]<-mean(obs.qual)
+
+    # apply ObsValues to the visited houses
+    obs.vect<-rep(0,nPoints)
+    for(numo in 1:length(ObsNames)){
+      nameo<-names(ObsValues)[numo]
+      obs.vect[which(db$IdObserver==nameo)]<- ObsValues[nameo]
+    }
+  }else{
+    stop("obs.val not formated as expected. Aborting.\n")
+  }
+  dbout$bgen<-obs.vect
+
+  # generate spatial autocorrelation and final values
+  cat("Generating autocorrelation...\n")
+  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp)
+  dbout$positive<-simul$z
+  dbout$ygen<-simul$y
+  dbout$wgen<-simul$w
+  dbout$vgen<-simul$v
+  dbout$cgen<-simul$c
+  dbout$ugen<-simul$u
+
+  attributes(dbout)$Q<-Q
+  attributes(dbout)$Kv<-Kv
+  attributes(dbout)$Ku<-Ku
+  attributes(dbout)$mu<-mu
+
+  return(dbout)
+}
+# simul<-gen.map(db)
+# plot_reel(db$X,db$Y,simul$z)
+
 
 generated.morans.struct<-function(distances,mats_neigh,nbRep,est.detection=NULL,est.Q=NULL,est.Ku=NULL,est.Kv=NULL,est.mu=NULL,est.c.comp=NULL,est.v=NULL,true.val=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE,trueStatus=FALSE){
 	if(is.null(est.detection)){
@@ -899,14 +1057,14 @@ generated.morans.struct<-function(distances,mats_neigh,nbRep,est.detection=NULL,
 	MI3<-mat.or.vec(nbRep,length(distances)-1)
 	for(i in 1:nbRep){
 		cat(i,"th generation\n")
-		generated<-zgenHighLevel(est.detection,zNA,est.w=est.w,est.u=est.u,est.v=est.v,est.Q=est.Q,est.Ku=est.Ku,est.Kv=est.Kv,est.mu=est.mu,est.c.comp=est.c.comp,force.mu=force.mu);
+		generated<-zgen(est.detection,zNA,est.w=est.w,est.u=est.u,est.v=est.v,est.Q=est.Q,est.Ku=est.Ku,est.Kv=est.Kv,est.mu=est.mu,est.c.comp=est.c.comp,force.mu=force.mu);
 		if(trueStatus){
 			y.p<-generated$y
 			cat("l y.p:",length(y.p));
-			mIrefPseudoObs<-structured.moransI(distances,mats_neigh,y.p,nb_rep_sign=0);
+			mIrefPseudoObs<-structured.moransI(mats_neigh,y.p,nb_rep_sign=0);
 		}else{
 			z.p<-generated$z
-			mIrefPseudoObs<-structured.moransI(distances,mats_neigh,z.p[sel],nb_rep_sign=0);
+			mIrefPseudoObs<-structured.moransI(mats_neigh,z.p[sel],nb_rep_sign=0);
 		}
 		plotIval<-plot.structured.moransI(distances,mIrefPseudoObs,plot=FALSE);
 		IdMoinsIs[i,]<-plotIval$mI2-plotIval$mI3
@@ -920,7 +1078,7 @@ generated.morans.struct<-function(distances,mats_neigh,nbRep,est.detection=NULL,
 	boxplot.free(MI1,ylim=c(0,max(MI1)),xaxt="n")
 	plotTrueIval<-NULL
 	if(!is.null(true.val)){
-		mIrefData<-structured.moransI(distances,mats_neigh,true.val[sel]);
+		mIrefData<-structured.moransI(mats_neigh,true.val[sel]);
 		plotTrueIval<-plot.structured.moransI(distances,mIrefData,plot=FALSE);
 		trueIdMoinsIs<-plotTrueIval$mI2-plotTrueIval$mI3
 		lines(plotTrueIval$mI1,col=4)
@@ -1121,22 +1279,27 @@ gen_c.map<-function(nbfact,nbpoints,rates=rep(0.5,nbfact)){
 # general sampling functions
 #-------------------------------
 
+# files for the saving of parameters
+betafile<-"betasamples.txt"
+coffile<-"cofactors.txt"
+monitorfile<-"sampled.txt"
+
 # adapt the standard deviation of the proposal
 adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,tailLength=20){
   # according to Gelman1996
   # adapt the sampling deviation so that acceptance rate fall within:
   # 0.15 and 0.4 (careful to begin the sampling after that)
   acceptRate <- mean(tail(accepts,tailLength))
-  cat("accept rate:",acceptRate);
+  # cat("accept rate:",acceptRate);
 
   attributes(sdprop)$noupdate<-FALSE
   if(acceptRate < lowAcceptRate){
     newsdprop<-sdprop*0.9
-    cat("update sdprop",sdprop,"to",newsdprop);
+    # cat("update sdprop",sdprop,"to",newsdprop);
     return(newsdprop)
   }else if(acceptRate > highAcceptRate){
     newsdprop<-sdprop*1.1
-    cat("update sdprop",sdprop,"to",newsdprop);
+    # cat("update sdprop",sdprop,"to",newsdprop);
     return(newsdprop)
   }else{
     attributes(sdprop)$noupdate<-TRUE
@@ -1384,6 +1547,96 @@ gibbsit <- function(data, varnames = NULL, q = 1/40, r =
 		"Nmin", "I_RL", "Kind"))
 	return(resmatrix)
 }
+Geweke.Diagnostic <- function (db,frac1=0.1,frac2=0.5) {
+  x <- as.matrix(db)
+  startx <- 1
+  endx <- nrow(x)
+  xstart <- c(startx, endx - frac2 * {endx - startx})
+  xend <- c(startx + frac1 * {endx - startx}, endx)
+
+  y.variance <- y.mean <- vector("list", 2)
+  for (i in 1:2) {
+    y <- x[xstart[i]:xend[i], ]
+    y.mean[[i]] <- colMeans(as.matrix(y))
+    yy <- as.matrix(y)
+    y <- as.matrix(y)
+    max.freq <- 0.5
+    order <- 1
+    max.length <- 200
+    if (nrow(yy) > max.length) {
+      batch.size <- ceiling(nrow(yy)/max.length)
+      yy <- aggregate(ts(yy, frequency = batch.size), nfreq = 1, 
+		      FUN = mean)
+    }
+    else {
+      batch.size <- 1
+    }
+    yy <- as.matrix(yy)
+    fmla <- switch(order + 1, spec ~ one, spec ~ f1, spec ~ 
+		   f1 + f2)
+    if (is.null(fmla)) 
+      stop("Invalid order.")
+    N <- nrow(yy)
+    Nfreq <- floor(N/2)
+    freq <- seq(from = 1/N, by = 1/N, length = Nfreq)
+    f1 <- sqrt(3) * {
+      4 * freq - 1
+    }
+    f2 <- sqrt(5) * {
+      24 * freq * freq - 12 * freq + 1
+    }
+    v0 <- numeric(ncol(yy))
+    for (j in 1:ncol(yy)) {
+      cat("Gew:",names(db)[j],"\n")
+      zz <- yy[, j]
+      zz<-zz[which(is.finite(zz))]
+      if (var(zz) == 0) {
+	v0[j] <- 0
+      }
+      else {
+	yfft <- fft(zz)
+	spec <- Re(yfft * Conj(yfft))/N
+	spec.data <- data.frame(one = rep(1, Nfreq), 
+				f1 = f1, f2 = f2, spec = spec[1 + {
+				  1:Nfreq
+				}], inset = I(freq <= max.freq))
+		glm.out <- try(glm(fmla, family = Gamma(link = "log"), 
+				   data = spec.data), silent = TRUE)
+	if (!inherits(glm.out, "try-error")) 
+	  v0[j] <- predict(glm.out, type = "response", 
+			   newdata = data.frame(spec = 0, one = 1, f1 = -sqrt(3), 
+						f2 = sqrt(5)))
+      }
+    }
+    spec <- list(spec = v0)
+    spec$spec <- spec$spec * batch.size
+    y.variance[[i]] <- spec$spec/nrow(y)
+  }
+  z <- {
+    y.mean[[1]] - y.mean[[2]]
+  }/sqrt(y.variance[[1]] + y.variance[[2]])
+  print(cbind(y.mean[[1]],y.mean[[2]],y.variance[[1]],y.variance[[2]]))
+
+  return(z)
+}
+basicGeweke<-function(db,frac1=0.1,frac2=0.5){
+  x<-as.matrix(db)
+  startx <- 1
+  endx <- nrow(x)
+  xstart <- c(startx, endx - frac2 * {endx - startx})
+  xend <- c(startx + frac1 * {endx - startx}, endx)
+  ymean<-yvar<-mat.or.vec(dim(db)[2],2)
+  for(samp in 1:2){
+    for(fact in 1:dim(db)[2]){
+      y<-db[xstart[samp]:xend[samp],fact]
+      ymean[fact,samp]<-mean(y)
+      yvar[fact,samp]<-var(y)
+    }
+  }
+  zscore<-(ymean[,1]-ymean[,2])/sqrt(yvar[,1]+yvar[,2])
+  pvalue<-pnorm(-abs(zscore))
+  return(pvalue)
+}
 
 cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 	enoughIt<-FALSE;
@@ -1428,25 +1681,28 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 		result<-TRUE;
 		nbRep<-1
 		nMaxRep<-5
-		limitGeweke<-1-(1-baseLimitGeweke)^(nMaxRep/length(sampThined[1,]))
+		# account for the multiple variables 
+		# that need to pass the test
+		limitGeweke<-1-(1-baseLimitGeweke)^(nMaxRep/dim(sampThined)[2])
 		while( nbRep<=nMaxRep && min(resG)<limitGeweke && class(result)!="try-error"){
-			cat("test Geweke with",discard,"discarded and limit=",limitGeweke,"\n",file=logfile,append=TRUE);
 			resGbrut<-1+limitGeweke # something bigger than limitGeweke
+			discard<-burnIn+round((nbIt-burnIn)*(nbRep-1)*0.1);
 			gewekeSample<-sampThined[-(1:discard),]
-			result<-try(resGbrut<-Geweke.Diagnostic(gewekeSample),silent=TRUE) # return p-values, 
+			cat("test Geweke with",discard,"discarded and limit=",limitGeweke,"\n",file=logfile,append=TRUE);
+			result<-try(resGbrut<-Geweke.Diagnostic(gewekeSample,frac1=0.5),silent=FALSE) # return p-values, 
 			resG<-pnorm(-abs(resGbrut))
+			print(resG)
 
-			discard<-ceiling((nbIt-burnIn)*nbRep*0.1);
 			nbRep<-nbRep+1
 		}
 		if(min(resG)<limitGeweke){
 			## if the convergence is not ok according to Geweke
 		  	## increase the number of iterations substentially
-			cat("Geweke not ok:",resG,"(threshold:",limitGeweke,")\n",file=logfile,append=TRUE);
+			cat("Geweke not ok:",resG,"(at least one <",limitGeweke,")\n",file=logfile,append=TRUE);
 			newNbIt<-ceiling(nbItBrut*1.5);
 		}else{
 			## if the convergence is ok test if we have enough samples
-			cat("Geweke ok :",resG,"(threshold:",limitGeweke,"), burnIn=",discard*KthinInit,"\n",file=logfile,append=TRUE);
+			cat("Geweke ok :",resG,"(all >",limitGeweke,"), burnIn=",discard*KthinInit,"\n",file=logfile,append=TRUE);
 			resESS<-ESS(sampThined[-(1:discard),])
 			nbItEff<-ceiling(max(resESS))
 			if(nbItEff<Nmin){
@@ -1460,14 +1716,15 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 			}
 		}
 	}else{
-		cat("Raftery negative (",nbIt,"<",nbItMin,")\n",file=logfile,append=TRUE);
+		cat("Raftery negative (",nbItBrut,"<",nbItMin,")\n",file=logfile,append=TRUE);
 		newNbIt<-nbItMin;
 	}
 	output<-as.data.frame(t(c(enoughIt,newNbIt,nbItEff,KthinInit*max(discard,burnIn),Kthin,Kind,min(resG))))
 	names(output)<-c("ok","newNbIt","nbItEff","burnIn","Kthin","Kind","min(resG)")
 
-	return(new("cb.diag.out",output,colAnalysed=colAnalysed,geweke=resG,limitGeweke=limitGeweke,raftery=resRaf));
+	return(invisible(new("cb.diag.out",output,colAnalysed=colAnalysed,geweke=resG,limitGeweke=limitGeweke,raftery=resRaf)));
 }
+# Ex: cb.diag(a<-matrix(rnorm(10000),ncol=10))
 
 
 # Kernel, NB: specific treatment of spam is 2 to 10 times more efficient
@@ -1566,7 +1823,7 @@ makeRuv <- function(dim,Q,K) {
   return(R);
 }
 
-QfromfT<-function(Dmat,indexMat,SB,f=f.r,T=T.r,addeps=epsilon,origin=NULL,kern=NULL,dimension=dim(Dmat)[1]){
+QfromfT<-function(Dmat,SB,f=f.r,T=T.r,addeps=epsilon,origin=NULL,kern=NULL,dimension=dim(Dmat)[1]){
 	if(is.spam(SB)){
 		Q<- SpecificMultiply.spam(1/T,-kern(T,Dmat,f),SB);#the precision matrix of u 
 	}else{
@@ -1596,7 +1853,7 @@ sample_f <- function(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NU
     f_prop<-rlnorm(1,log(f),logsdfprop);
     hasting_term=dlnorm(f,log(f_prop),logsdfprop,log=TRUE)-dlnorm(f_prop,log(f),logsdfprop,log=TRUE);
     
-	Qprop<-QfromfT(Dmat,AS,SB,f=f_prop,T=T,kern=kern);
+	Qprop<-QfromfT(Dmat,SB,f=f_prop,T=T,kern=kern);
 
 	cholQprop<-get.cholMat(Qprop,cholQ)
 	LLHuprop<-fast.llh.ugivQ(u,Qprop,Ku,cholQ=cholQprop);
@@ -1636,7 +1893,7 @@ sample_T <- function(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NUL
   hasting_term=dlnorm(T,log(T_prop),logsdTprop,log=TRUE)-dlnorm(T_prop,log(T),logsdTprop,log=TRUE);
 
   # calculate the LLH (common for both samplings)
-  Qprop<-QfromfT(Dmat,AS,SB,f=f,T=T_prop,kern=kern);
+  Qprop<-QfromfT(Dmat,SB,f=f,T=T_prop,kern=kern);
 
   cholQprop<-get.cholMat(Qprop,cholQ)
   LLHuprop<-fast.llh.ugivQ(u,Qprop,Ku,cholQ=cholQprop);
@@ -1703,6 +1960,10 @@ llh.vgivKv<-function(dimension,v,Kv){
 
 	return(LLH);
 }
+llh.wgivc<-function(w,c,Kv){
+  LLH<-sum(dnorm(c.compt,mean=wt,sd=sqrt(1/TKv),log=TRUE))
+}
+
 llh.ygivw<-function(y,w){
 	## return the loglikelihood of y given w
 	logpi<-length(y)*log(2*pi);
@@ -1910,6 +2171,32 @@ sampleK <- function(dim,Q,x,K.hyper) {
   K <- c(Ku,Kv);
   return(K);
 }
+sampleKv <- function(v,Kv.a,Kv.b){
+  dim<-length(v)
+  v.pshape <- (0.5*dim + Kv.a);
+  v.pscale <- (0.5*as.numeric(v %*% v) + Kv.b^(-1))^(-1);
+  Kv <- rgamma(n=1, shape=v.pshape, scale=v.pscale);
+  return(Kv);
+}
+# # test sampleKv
+# ntest<-10000
+# Kv.r<-10
+# v.r<-rnorm(500,mean=0,sd=sqrt(1/Kv.r))
+# sampledKv<-rep(0,ntest)
+# Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
+# for(i in 1: ntest){
+#   Kv<-sampleKv(v.r,0*v.r,Kvshape,Kvscale)
+# sampledKv[i]<-Kv
+# }
+# par(mfrow=c(1,2))
+# plot(sampledKv)
+# abline(h=Kv.r,col="green")
+# abline(h=mean(sampledKv[-(1:length(sampledKv)/2)]),col="blue")
+# abline(h=1/sd(v.r)^2,col=1)
+# get.estimate(sampledKv[-(1:length(sampledKv)/2)],true.val=Kv.r)
+
+
+
 acceptKv={}
 sampleKvMHunifSigma<-function(Kv,v,logsdDraw){
 	sig<-sqrt(1/Kv)
@@ -1937,21 +2224,22 @@ sampleKvMHunifSigma<-function(Kv,v,logsdDraw){
 }
 # # test sampleKvMHunifSigma
 # ntest<-10000
-# Kv<-0.1*Kv.r
+# Kv.r<-10
+# v.r<-rnorm(500,mean=0,sd=sqrt(1/Kv.r))
 # sampledKv<-rep(0,ntest)
+# Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 # for(i in 1: ntest){
-# Kv<-sampleKvMHunifSigma(Kv,v.r,0.05)$Kv
+#    Kv<-sampleKvMHunifSigma(Kv,v.r,0.05)$Kv
 # sampledKv[i]<-Kv
 # }
 # par(mfrow=c(1,2))
 # plot(sampledKv)
-# abline(h=Kv.r,col=2)
-# abline(h=1/sd(v.r)^2,col=4)
-# hist(sampledKv[-(1:100)])
-# abline(v=Kv.r,col=2)
-# abline(v=1/sd(v.r)^2,col=4)
-# mean(acceptKv)
-# mean(sampledKv[-(1:100)])
+# abline(h=Kv.r,col="green")
+# abline(h=mean(sampledKv[-(1:length(sampledKv)/2)]),col="blue")
+# abline(h=1/sd(v.r)^2,col=1)
+# get.estimate(sampledKv[-(1:length(sampledKv)/2)],true.val=Kv.r)
+
+
 
 acceptKu={}
 ## ok for both Kv and Kc (and could be used for Ku with dim<-dimension-1)
@@ -1963,30 +2251,65 @@ sampleKu <- function(dim,Q,u,Kushape,Kuscale) {
 	return(Ku);
 }
 
-llh.c<-	function(c.val,c.comp,Kc,wnoc,y){
-	w<-wnoc+c.comp;
-	LLH<-llh.ygivw(y,w)+sum(dnorm(c.val,mean=0,sd=sqrt(1/Kc),log=TRUE));
-	return(LLH);
+llh.c<-	function(c.val,c.comp,Kc,wnoc,y,zNA){
+  w<-wnoc+c.comp;
+  if(length(zNA)>0){
+    w<-w[-zNA]
+    y<-y[-zNA]
+  }
+  LLH<-llh.ygivw(y,w)+sum(dnorm(c.val,mean=0,sd=sqrt(1/Kc),log=TRUE));
+  return(LLH);
+}
+llh.cbis<-function(c.val,c.comp,Kc,wnospat,y,zNA,Kv){
+  if(length(zNA)>0){
+    wnospat<-wnospat[-zNA]
+    c.comp<-c.comp[-zNA]
+    y<-y[-zNA]
+  }
+  LLH<-sum(dnorm(y,mean=c.comp,sd=1+sqrt(1/Kv)),log=TRUE)+sum(dnorm(c.val,mean=0,sd=sqrt(1/Kc),log=TRUE));
+  return(LLH);
 }
 acceptc.val<-{}
-mhsamplec<-function(c.val,c.comp,c.map,sdc.val,Kc,wnoc,y){
+mhsamplec<-function(c.val,c.comp,c.map,sdc.val,Kc,wnoc,y,zNA){
 	nbc<-length(c.val);
 	c.valprop<-rnorm(nbc,c.val,sdc.val);
 	# hasting_term=dnorm(c.val,log(c.valprop),logsdc.val,log=TRUE)-dnorm(c.valprop,log(c.val),logsdc.val,log=TRUE);
 	c.compprop<-drop(c.map%*%c.valprop);
-	LLHproposal <- llh.c(c.valprop,c.compprop,Kc,wnoc,y); 
-	LLH <-llh.c(c.val,c.comp,Kc,wnoc,y);
+	LLHproposal <- llh.c(c.valprop,c.compprop,Kc,wnoc,y,zNA); 
+	LLH <-llh.c(c.val,c.comp,Kc,wnoc,y,zNA);
 	lnr <- LLHproposal-LLH# +hasting_term;
-	cat("c.val:",c.val,"LLH:",LLH,"c.valprop:",c.valprop,"LLH proposal:",LLHproposal,"lnr",lnr);
+	# cat("c.val:",c.val,"LLH:",LLH,"c.valprop:",c.valprop,"LLH proposal:",LLHproposal,"lnr",lnr);
 
 	if(lnr>=log(runif(1))) {
 		c.val <- c.valprop;
 		c.comp<-c.compprop;
 		acceptc.val<<-c(acceptc.val,1);
-		cat(" accept 1\n");
+		# cat(" accept 1\n");
 	}else{
 		acceptc.val<<-c(acceptc.val,0);
-		cat("accept 0\n");
+		# cat("accept 0\n");
+	}
+
+	return(list(c.val,c.comp));
+}
+mhsamplecbis<-function(c.val,c.comp,c.map,sdc.val,Kc,wnospat,y,zNA,Kv){
+	nbc<-length(c.val);
+	c.valprop<-rnorm(nbc,c.val,sdc.val);
+	# hasting_term=dnorm(c.val,log(c.valprop),logsdc.val,log=TRUE)-dnorm(c.valprop,log(c.val),logsdc.val,log=TRUE);
+	c.compprop<-drop(c.map%*%c.valprop);
+	LLHproposal <- llh.cbis(c.valprop,c.compprop,Kc,wnospat,y,zNA,Kv); 
+	LLH <-llh.cbis(c.val,c.comp,Kc,wnospat,y,zNA,Kv);
+	lnr <- LLHproposal-LLH# +hasting_term;
+	# cat("c.val:",c.val,"LLH:",LLH,"c.valprop:",c.valprop,"LLH proposal:",LLHproposal,"lnr",lnr);
+
+	if(lnr>=log(runif(1))) {
+		c.val <- c.valprop;
+		c.comp<-c.compprop;
+		acceptc.val<<-c(acceptc.val,1);
+		# cat(" accept 1\n");
+	}else{
+		acceptc.val<<-c(acceptc.val,0);
+		# cat("accept 0\n");
 	}
 
 	return(list(c.val,c.comp));
@@ -2016,6 +2339,27 @@ fastsamplexuv <- function(dim,cholR,y) {
   x <- x + center;
   return(x);
 }
+
+sample_w_nospat<-function(y,c,Kv){
+## classical formula for posterior given
+## y ~ N(w,1)
+## w ~ N(c,1/Kv)
+  var<-1/Kv
+  meanPost<-y*var/(1+var)+c/(1+var)
+  sdPost<-sqrt(1/(Kv+1))
+  w<-rnorm(length(w),mean=meanPost,sd=sdPost)
+  return(w)
+}
+
+
+sample_v<-function(ynotv,Kv){
+  cov<-1/(1+Kv)
+  meanPost<- cov * ynotv
+  sdPost<- sqrt(cov)
+  v<-rnorm(length(ynotv),mean=meanPost,sd=sdPost)
+  return(v)
+}
+
 
 samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
 	yp.positive <- yprime;
@@ -2080,6 +2424,16 @@ fit.spatautocorel<-function(db=NULL,
   # the function can be "softly stopped", saving everything by 
   # uncommenting break() in manual.stop.r
 
+  # source(pfile)
+  source("parameters_extrapol.r")
+  
+  # check fondamental variables present
+  if(is.null(db$positive)){
+    cat("\nMissing \"positive\" in db. Aborting.\n")
+    return(NULL)
+  }
+
+
   cat("\n")
   cat("Assessing computation to perform\n")
   cat("--------------------------------\n")
@@ -2103,6 +2457,7 @@ fit.spatautocorel<-function(db=NULL,
   if(is.null(db$IdObserver)){
     use.insp<-FALSE
     mes<-""
+    beta<-1
   }else{
     use.insp<-TRUE
     mes<-paste("(",length(levels(as.factor(db$IdObserver))),")",sep="")
@@ -2117,7 +2472,7 @@ fit.spatautocorel<-function(db=NULL,
     use.NA<-TRUE
     mes<-paste("(",length(which(db$observed==0)),")",sep="")
   }
-  cat("Account for non-observed:",use.NA,mes,"\n") 
+  cat("Account for non-observed points:",use.NA,mes,"\n") 
 
   if(!is.null(db$p.i)){
     intercept <- qnorm(mean(db$p.i))
@@ -2125,14 +2480,18 @@ fit.spatautocorel<-function(db=NULL,
     intercept <- 0
   }
   dimension <- nrow(db);
-  db$status<-rep(0,length(db$X))
+  db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
 
-  source("parameters_extrapol.r")
 
+  cat("Account for spatial autocorrelation:")
+  if(!is.null(db$X)){
+    use.spat<-TRUE
+    cat(use.spat)
   # affectation of the kernel
+  cat(" Using kernel:",kern)
   if(kern == "exp"){
     kern<-expKernel;
   }else if(kern == "gaussian"){
@@ -2152,15 +2511,25 @@ fit.spatautocorel<-function(db=NULL,
   spam.options(nearestdistnnz=c(9058076,400))
   dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
   diag(dist_mat)<- rep(0,dim(dist_mat)[1])
-  cat("Account for known barriers: ")
+  cat("\nAccount for known barriers: ")
+  }else{
+  # affectation of the kernel
+    use.spat<-FALSE
+    cat(use.spat)
+    kern<-expKernel
+    fit.spatstruct<-FALSE
+    dm<-mat.or.vec(dim(db)[1],dim(db)[1])
+    dist_mat<-as.spam(dm)
+  }
+
   if(!is.null(db$GroupNum)){
     use.streets<-TRUE
     SB <- nearest.dist(x=cbind(db$GroupNum,rep(0,length(db$GroupNum))), method="euclidian", upper=NULL,delta=0.1)
     SB@entries<-rep(1,length(SB@entries))
+
     dmt<-dist_mat
     dmt@entries<-rep(1,length(dmt@entries))# [dmt@entries!=0]<-1 # 1 only when dist_mat not 0
-    SB@entries<-rep(1,length(SB@entries))
-    # cat("SB:",dim(SB),"dmt:",dim(dmt),"\n")
+
     SB<-as.spam(SB*dmt);
 
     AS<-dmt-SB; # get 1 whereever the distances matrix is defined(under threshold) and not same block
@@ -2176,8 +2545,15 @@ fit.spatautocorel<-function(db=NULL,
     SB<-1
     AS<-0
     mes<-""
+    meanSBshare<-NA
+    meanSBshareNoT<-NA
+    SBdist<-1
   }
+  if(use.spat){
   cat(use.streets,mes,"\n")
+  }
+
+  cat("Account for local noise:",use.v,"\n")
 
   # should have here kernel used etc...
 
@@ -2185,17 +2561,21 @@ fit.spatautocorel<-function(db=NULL,
   if(nbiterations<0){
     final.run<-TRUE
     mes<-"Performing as many iterations as necessary for convergence."
+    adaptOK<-FALSE
   }else{
     final.run<-FALSE
     mes<-paste("Stopping after",nbiterations,"iterations of the MCMC")
+    adaptOK<-TRUE # No adaptation of sampling sd when fix number of iterations
   }
   cat(mes,"\n")
 
   if(interactive() && !nocheck){
     continue<-readline("Is this what you want?(Y/n)\n")
-    if(continue=="n" || continue== "N") stop("Ok, aborting\n")
+    if(continue=="n" || continue== "N"){
+      cat("Ok aborting.\n")
+      return(NULL)
+    }
   }
-
 
   if(use.insp){
     data.insp <- db$IdObserver;
@@ -2214,7 +2594,6 @@ fit.spatautocorel<-function(db=NULL,
     bivect<-rep(priorinspquality,length(db$X))
   }
 
-  cat("init prep_sampling db:",exists("db"),"\n")
   ## set the name
 if(use.generated){racgen<-"gen"}else{racgen<-"true"}
 if(use.v){racv<-"v"}else{racv<-"uv"}
@@ -2227,12 +2606,10 @@ if(use.generated){
 	zNA <- which(z.r==9);
 }else{
 	z.r<-db$status
-	graphics.off()
 	## initialisation specific to true db
 	zpos <- which(db$status==1);
 	zneg <- which(db$status==0);
 	zNA <- which(db$status==9);
-	dev.new()
 	select<-c(zneg,zpos)
 	# plot_reel(db$X[select],db$Y[select],2*db$status[select]-1,main="data")
 }
@@ -2312,33 +2689,39 @@ if(use.insp){
 ## starting values
 K<-c(Ku,Kv,Kc);
 if(use.streets){
-	Q<-QfromfT(dist_mat,AS,SB,f,T,kern=kern);
+	Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
 }else{
-	Q<-QfromfT(dist_mat,AS,SB,f,T=1,kern=kern);
+	Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
 }
 
-cat("at Q build\n T:",T,"f:",f,"Ku:",Ku,"Kv:",Kv,"\n")
+# cat("at Q build\n T:",T,"f:",f,"Ku:",Ku,"Kv:",Kv,"\n")
 cholQ<-chol(Q);
 
 u<-rep(0,dimension);
 y<-rep(0,dimension);
 yprime <- (y>0);
 if(use.v){
-w <- rnorm(dimension,u,sqrt((K[2])^(-1)));
+w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
 v<-w-u;
 x <- c(u, w);
+}else{
+  w<-u
+  v<-0*u
+  x<-c(u,w)
 }
 
-c.map<-as.matrix(db[,cofs])
 
 R <- makeRuv(dimension,Q,K);
 cholR <- chol.spam(R,memory=list(nnzcolindices=300000));
 
 if(use.cofactors){
-	c.val<-rep(0,length(cofs));
-	c.comp<-c.map%*%c.val
+  c.map<-as.matrix(db[,cofs])
+  c.val<-rep(0,length(cofs));
+  c.comp<-c.map%*%c.val
+  wnotr<-c.comp
 }else{
-	LLHc<-0
+  LLHc<-0
+  wnotr<-0*u
 }
 
 ItTestNum<-gibbsit(NULL,NminOnly=TRUE);
@@ -2350,7 +2733,7 @@ if(final.run){
 	use.autostop<-TRUE
 }else{
 	use.autostop<-FALSE;
-	lastAdaptProp <- nbiterations/2; # fraction of the chain used for the estimate
+	lastAdaptProp <- 0
 }
 LLHu<-llh.ugivQ(dimension,u,Q,K[1])
 LLH<-llh.zgivw(w,zpos,zneg,bivect)
@@ -2391,9 +2774,7 @@ if(fit.spatstruct){
 	sampled[1,18]<-0
 	sampled[1,19]<-mean(beta);
 	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta")
-	if(length(namesSampled)!=nbtraced){
-	  stop("Number of names in sampled != number of columns")
-	}
+	
 }else{
 	grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
 	nbtraced<-2*(2+length(grid.stab))+4
@@ -2404,42 +2785,54 @@ if(fit.spatstruct){
 	sampled[1,2]<-sd(u)
 	sampled[1,3:spacer]<-u[grid.stab]
 	sampled[1,spacer+1]<-mean(w)
-	sampled[1,spacer+2]<-sd(u)
+	sampled[1,spacer+2]<-sd(w)
 	sampled[1,(spacer+3):(2*spacer)]<-w[grid.stab]
 	LLHu<-llh.ugivQ(dimension,u,Q,K[1])
 	sampled[1,(2*spacer)+1]<-llh.ugivQ(dimension,u,Q,K[1])
 	sampled[1,(2*spacer)+2]<-llh.ygivw(y,w);
 	sampled[1,(2*spacer)+3]<-llh.zgivy(y,zpos,zneg,bivect);
 	sampled[1,(2*spacer)+4]<-llh.zgivw(w,zpos,zneg,bivect);
+	namesSampled<-c("meanu","sdu",rep("localu",length(grid.stab)),"meanw","sdw",rep("localw",length(grid.stab)),"llhugivQ","llhygivw","llhzgivy","llhzgivw")
+}
+if(length(namesSampled)!=nbtraced){
+  stop("Number of names in sampled != number of columns")
 }
 
-write.table(t(namesSampled),"sampled.txt",sep="\t",col.names=FALSE,row.names=FALSE)
-
-write.table(t(sampled[1,]), "sampled.txt", sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
+write.table(t(namesSampled),monitorfile,sep="\t",col.names=FALSE,row.names=FALSE)
+write.table(t(sampled[1,]), monitorfile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
 lastsaved<-1
 
 write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 write.table(t(w), "wsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 write.table(t(y), "ypsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 if(use.cofactors){
-	write.table(t(cofs), "cofactors.txt", sep="\t",col.names=FALSE,row.names=FALSE,append=FALSE)
-	write.table(t(c.val), "cofactors.txt", sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
+	write.table(t(cofs), coffile, sep="\t",col.names=FALSE,row.names=FALSE,append=FALSE)
+	write.table(t(c.val), coffile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
+}else{
+  if(file.exists(coffile)){
+    file.remove(coffile)
+  }
 }
 if(use.insp){
-	write.table(t(beta), "betasamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
+	write.table(t(beta),betafile, sep="\t",col.names=FALSE,row.names=FALSE)
+}else{
+  if(file.exists(betafile)){
+    file.remove(betafile)
+  }
 }
+
 
 ## Display Data
 z<-db$positive
 z[db$observed==0]<-0.5
 
+if(use.spat){
 dev.new()
 par(mfrow=c(1,2))
 plot_reel(db$X,db$Y,z,base=0,top=1,main="data with pale Non Observed")
 legend("bottomright",c("Negative","Non Observed","Positive"),col=c("black","yellow4","yellow"),pch=15)
 plot.classes(db$X,db$Y,db$GroupNum,main="Groups")
-
-cat("begin kernel ok\n")
+}
 
 ## initialization of small recording variables
 nbploted<-2
@@ -2465,83 +2858,73 @@ if(visu.progression){
 }
 sumSBshares<-rep(0,length(w))
 
-cat("b:",mean(bivect),"nb zneg",length(zneg))
-cat("rand:",rnorm(1),"dim",length(w),"mean w",mean(w),"bivect",mean(bivect),"\n")
-cat("\nbeta:",beta,"\n")
-
 ### Main Loop
 mainLoopStart<-proc.time()
 num.simul<-1;
 Kthin<-1
-adaptOK<-FALSE
 lastBurnIn<-0
+# set.seed(777)
+# cat("rand",rnorm(1));
+cat("Begin sampling...\n")
 while (num.simul <= nbiterations || (!adaptOK && final.run)) {
-  cat("\n\n",num.simul,", out of:",nbiterations," ");
+  # cat("\n\n",num.simul,", out of:",nbiterations," ");
+  # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
     y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
-    cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA))
+    # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
 
-    # update x (spatial component)
-    if(use.cofactors && use.v){ #  cofactors and local error
+    # update "r" the spatial component and/or non-spatial noise 
+    if(use.spat){ # spatial component
+      if(use.v){ # local error
 	if(fit.spatstruct){
-	  x <- samplexuv(dimension,Q,K,y-c.comp,cholR);
-	}else{
-	  x <- fastsamplexuv(dimension,cholR,y-c.comp);
-	}
-	u<-x[1:dimension];
-	v<-x[dimension+(1:dimension)]-u;
-	c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,x[dimension+(1:dimension)],y);
-	c.val<-c.all[[1]]
-	c.comp<-c.all[[2]]
-	if(fit.spatstruct){
+	  x <- samplexuv(dimension,Q,K,y-wnotr,cholR);
+
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
+	  cat("Ku",Ku,"Kv",Kv,"\n");
+	}else{
+	  x <- fastsamplexuv(dimension,cholR,y-wnotr);
 	}
-	w<-x[dimension+(1:dimension)]+c.comp;
-	cat("Ku",Ku,"Kv",Kv,"\n");
-
-    }else if(use.cofactors && !use.v){
-	u<-sample_u(dimension,Q,K,y-c.comp,cholQ);
+	u<-x[1:dimension];
+	v<-x[dimension+(1:dimension)]-u;
+	wnoc<-x[dimension+(1:dimension)]
+      }else{ # no local error
+	u<-sample_u(dimension,Q,K,y-wnotr,cholQ);
 	wnoc<-u
 	if(fit.spatstruct){
-	    Ku <- sampleKu(dimension,Q,u,Kushape,Kuscale); 
-	    K[1]<-Ku;
-	}
-	c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc,y);
-	c.val<-c.all[[1]]
-	c.comp<-c.all[[2]]
-	w<-wnoc+c.comp
-	cat("Ku",Ku,"\n");
-    }else if(!use.cofactors && use.v){
-      if(fit.spatstruct){
-	x <- samplexuv(dimension,Q,K,y,cholR);
-      }else{
-	x <- fastsamplexuv(dimension,cholR,y);
-      }
-      u<-x[1:dimension];
-      w<-x[dimension+(1:dimension)]
-      if(fit.spatstruct){
-	K <- sampleK(dimension,Q,x,K.hyper);
-	Ku<-K[1];
-	Kv<-K[2];
-      }
-      cat("Ku",Ku,"Kv",Kv,"\n");
-    }else{ # use neighter v nor cofactors
-      u<-sample_u(dimension,Q,K,y,cholQ);
-      w<-u
-      # cat("likugivQ after u sampling",llh.ugivQ(dimension,u,Q,K[1]),"\n");
-      if(fit.spatstruct){
-	  Ku<-sampleKu(dimension,Q,u-mean(u),Kushape,Kuscale); 
+	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
 	  K[1]<-Ku;
+	  cat("Ku",Ku,"\n");
+	}
       }
-      cat("Ku",Ku,"\n");
+    }else{ # no spatial component
+      if(use.v){ # local error
+	u<-0*w
+	v<-sample_v(y-wnotr,Kv)
+	Kv<-sampleKv(v,Kvshape,Kvscale)
+	wnoc<-v
+      }else{ # no local error
+	wnoc<-0*w
+      }
     }
-  # LLHu<-fast.llh.ugivQ(u,Q,Ku,cholQ=cholQ) # for some mysterious reason, cannot be used here, some update of cholQ is not done correctly
+
+    if(use.cofactors){
+      c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc,y,zNA);
+      c.val<-c.all[[1]]
+      c.comp<-c.all[[2]]
+      wnotr<-c.comp
+	# cat("mc",mean(c.all),"sdc.val",sdc.val,"mv",mean(y),"mwnoc",mean(wnoc),"Kc",Kc,"\n");
+    }else{
+      wnotr<-0*w
+    }
+    w<-wnoc+wnotr
+
   if(fit.spatstruct){
-    LLHu<-llh.ugivQ(dimension,u,Q,Ku,cholQ=cholQ) # for some mysterious reason, cannot be used here, some update of cholQ is not done correctly
+    LLHu<-llh.ugivQ(dimension,u,Q,Ku,cholQ=cholQ) 
+  # LLHu<-fast.llh.ugivQ(u,Q,Ku,cholQ=cholQ) # for some mysterious reason, cannot be used here, some update of cholQ is not done correctly
   }
 
   ## update the autocorrelation kernel
@@ -2566,6 +2949,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     bivect <- as.vector(inspector %*% beta);
     cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
   }
+
   if(lastAdaptProp<num.simul){
     sum.u<-sum.u+u;
     if(use.v){
@@ -2611,7 +2995,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       adaptOK<-adaptOK && attributes(sdc.val)$noupdate
     }
     if(adaptOK){
-      cat("\n adaptation of sampling variances OK\n");
+      cat("\n Adaptation of sampling variances OK\n");
       if(final.run){
 	lastAdaptProp<-num.simul;
 	nbiterations<-lastAdaptProp+ItTestNum;
@@ -2644,10 +3028,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   LLHTotal<-LLH+LLHu+LLHv+LLHc+llhf+llhT+llhKu+llhKv+LLHb
 
-  cat("LLHtotal:",LLHTotal,"(",LLH,"+",LLHu,"+",LLHv,"+",LLHc,"+",llhf,"+",llhT,"+",llhKu,"+",llhKv,"+",LLHb,")\n");
-  cat("mu:",mean(u),"sdu:",sd(u),"T:",T,"f:",f);
+  # cat("LLHtotal:",LLHTotal,"(",LLH,"+",LLHu,"+",LLHv,"+",LLHc,"+",llhf,"+",llhT,"+",llhKu,"+",llhKv,"+",LLHb,")\n");
+  # cat("mu:",mean(u),"sdu:",sd(u),"T:",T,"f:",f);
 
   # Same block weight in spatial component
+  if(use.streets){
   kernSB<-kern(1,SBdist,f)
   kernAS<-kern(T,ASdist,f)
   kernASnoT<-kern(1,ASdist,f)
@@ -2660,6 +3045,8 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
   sumSBshares<-sumSBshares+SBshares
   cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
+  }else{
+  }
 
   ## monitored variables
   if(fit.spatstruct){
@@ -2699,8 +3086,10 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   }
   ## auto stopping
   if((num.simul==ItTestNum+lastAdaptProp && num.simul>lastAdaptProp +1 && final.run)){
-    cb<-cb.diag(sampled[(1+lastAdaptProp):num.simul,-9],logfile="convergence_tests.txt",KthinInit=Kthin);
-    Kthin<-cb$Kthin
+    # accommodate for limited length acceptable by gibbsit
+    KthinAcc<-ceiling(num.simul/45000)
+    cb<-cb.diag(sampled[(1+lastAdaptProp):num.simul,-9],logfile="convergence_tests.txt",KthinInit=KthinAcc);
+    Kthin<-cb$Kthin*KthinAcc
     lastBurnIn<-cb$burnIn+lastAdaptProp
     ItTestNum<-min(cb$newNbIt,num.simul*3);
     if(use.autostop){
@@ -2719,16 +3108,16 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   ### save to files every freqsave or before stopping
   if(num.simul%%freqsave==0 || num.simul==(nbiterations)){ 
+    cat("\nSaving at",num.simul,", out of:",nbiterations," ");
     write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
     write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
     write.table(t(as.numeric(yprime)), "ypsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
 
-    cat("write sampled",num.simul);
     toWrite<-sampled[(lastsaved+1):(num.simul+1),]
     if(is.vector(toWrite)){
       toWrite<-t(toWrite)
     }
-    write.table(toWrite, "sampled.txt",append=TRUE, sep="\t",col.names=FALSE,row.names=FALSE)
+    write.table(toWrite, monitorfile,append=TRUE, sep="\t",col.names=FALSE,row.names=FALSE)
     if(visu.progression){
       plot_reel(db$X,db$Y,y,main="y")
       plot_reel(db$X,db$Y,u,main="u")
@@ -2741,7 +3130,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     if(is.vector(toWrite)){
       toWrite<-t(toWrite)
     }
-    write.table(toWrite, "cofactors.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+    write.table(toWrite, coffile, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
     }
     if(use.v){
       v<-x[dimension+(1:dimension)]-u;
@@ -2750,7 +3139,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       }
     }
     if(use.insp){
-      write.table(t(beta), "betasamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+      write.table(t(beta), betafile, sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
       if(visu.progression){
 	plot_reel(db$X,db$Y,bivect*2-1,main="insp")
       }
@@ -2793,17 +3182,342 @@ if(use.cofactors){
   dump("est.c.val",file=paste("estimated.txt",sep=""),append=TRUE)
   db$est.c <- c.map%*%est.c.val
 }
-sampled<-sampled[1:nbiterations,];
+sampled<-sampled[1:(nbiterations+1),];
 
-save(list=ls(),file="EndSampleImage.img") # allow to examin the environment later
 cat("\n")
 attributes(db)$lastAdapt<-lastAdaptProp
 attributes(db)$lastBurnIn<-lastBurnIn
 attributes(db)$Kthin<-Kthin
 attributes(db)$freqsave<-freqsave
+attributes(db)$nbiterations<-nbiterations
+
+save(list=ls(),file="EndSampleImage.img") # allow to examin the environment later
+
 return(db)
 }
 
 extrapol.spatautocorel<-function(...){
   return(fit.spatautocorel(...,fit.spatstruct=FALSE))
 }
+
+cut.burnIn<-function(dbFit=NULL,samplesDB){
+  if(!is.null(dbFit) && length(samplesDB)>0){
+    # check that sampled not already chopped 
+    sampleLength<-dim(samplesDB)[1]
+    expectedLength<-attributes(dbFit)$nbiterations
+
+    if(sampleLength == expectedLength){
+      cat("Using only after burn in\n")
+      range<-seq(attributes(dbFit)$lastBurnIn+1,sampleLength)
+      samplesDB<-samplesDB[range,]
+    }
+  } 
+  return(samplesDB)
+}
+get.sampled<-function(samples=NULL,file=monitorfile,dbFit=NULL){
+  if(is.null(samples$sampled)){
+    # for some reason this is much faster than read.table()
+    cat("Importing spatial autocorrelation values\n")
+    noms<-read.table(file,nrow=1,header=TRUE)
+    sampled<-as.data.frame(matrix(scan(skip=1,file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE))
+    names(sampled)<-names(noms)
+  }else{
+    sampled<-samples$sampled
+  }
+  sampled<-cut.burnIn(dbFit,sampled)
+
+  return(sampled)
+}
+get.cofactors<-function(samples=NULL,file=coffile,dbFit=NULL){
+  if(is.null(samples$c.vals)){
+    cat("Import cofactors\n")
+    if(file.exists(file)){
+      noms<-read.table(file,nrow=1,header=TRUE)
+      c.vals<-as.data.frame(matrix(scan(skip=1,file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE))
+      names(c.vals)<-names(noms)
+    }else{
+      cat("Import cofactors impossible, no",file,"file \n")
+      c.vals<-NULL
+    }
+  }else{
+    c.vals<-samples$c.vals
+  }
+
+  c.vals<-cut.burnIn(dbFit,c.vals)
+
+  return(c.vals)
+}
+get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
+  if(is.null(samples$betas)){
+    if(file.exists(file)){
+      cat("Import observers \n")
+      noms<-read.table(file,nrow=1,header=FALSE)
+      betas<-as.data.frame(matrix(scan(file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE))
+      names(betas)<-paste("obs",1:length(names(betas)),sep="")
+    }else{
+      cat("Import observers failed: No",file,"file \n")
+      betas<-NULL
+    }
+
+  }else{
+    betas<-samples$betas
+  }
+
+  betas<-cut.burnIn(dbFit,betas)
+
+  return(betas)
+}
+traces<-function(db,nl=3,nc=4){
+  db<-as.data.frame(db)
+  if(dim(db)[2]>100){
+    type="p"
+    pch<-"."
+  }else{
+    type="l"
+  }
+  for(num in 1:length(names(db))){
+    if(num %% (nl*nc) ==1){ 
+      dev.new()
+      par(mfrow=c(nl,nc))
+    }
+    plot(db[[num]],main=names(db)[num],pch=pch,type=type)
+  }
+}
+
+trace.mcmc<-function(samples=NULL,dbFit=NULL){
+  # import autocorrelation parameters and likelihoods
+
+  ## monitored variables/parameters
+  sampled<-get.sampled(dbFit=dbFit,samples=samples)
+  niterations<-dim(sampled)[1]
+
+  if(!is.null(sampled$T)){
+  par(mfrow=c(2,3))
+  plot(1/sampled$T,main="Barrier effect (1/T)",pch=".")
+  plot(sampled$f,main="Characteristic distance",pch=".")
+  plot(c(1,niterations),c(0,1),type="n",main="Mean SB share",xlab="Index")
+  lines(sampled$meanSBshare,pch=".")
+  lines(sampled$meanSBshareNoT,main="Mean SB share",pch=".",col="blue",type="p")
+  legend("bottomright",c("Actual","If no barrier effect"),pch=20,col=c("black","blue"),pt.cex=0.5)
+  plot(sampled$meanBeta,main="Mean observer quality",pch=".")
+  plot(sampled$LLH,main="LLH",pch=".")
+  }else{
+    par(mfrow=c(3,6))
+    for( var in 1:length(names(sampled))){
+      plot(sampled[,var],main=names(sampled)[var],pch=".")
+    }
+  }
+
+
+  ## cofactors
+  c.vals<-get.cofactors(dbFit=dbFit,samples=samples)
+  if(!is.null(c.vals)){
+    # traces it
+    dev.new()
+    par(mfrow=c(3,2))
+    for(cofactor in names(c.vals)){
+      plot(c.vals[,cofactor],main=cofactor,pch=".")
+    }
+  }
+
+  ## observers
+  betas<-get.betas(samples=samples,dbFit=dbFit,)
+  if(!is.null(betas)){
+    dev.new()
+    plot(c(1,dim(betas)[1]),c(0,1),type="n",main="Individual quality of observers",xlab="Iterations",ylab="Detection rate of positive")
+    for(insp in 1: dim(betas)[2]){
+      lines(betas[,insp],col=sample(colors(),1),pch=".",type="p")
+    }
+  }
+
+  return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
+}
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
+  C<-C[which(!is.infinite(C))]
+  if(length(which(!is.na(C)))>1){
+    estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
+    names(estimate)[1]<-"Mean"
+    names(estimate)[3]<-"Median"
+  }else{
+    estimate<-rep(NA,4)
+  }
+  if(length(levels(as.factor(C)))>1){ # avoid to estimate unvarying
+    # fit the density of C, avoiding errors with overspread C 
+    Nthin<-1
+    while(class(densfit<-try(locfit(~C[seq(1,length(C),Nthin)])))=="try-error" && Nthin<length(C)/100){
+      Nthin<-Nthin*10
+    }
+    attributes(densfit)$Nthin<-Nthin
+    if(Nthin>1){
+      name<-paste(name," thinned x",Nthin,sep="")
+    }
+
+    vals<-predict(densfit,estimate)
+    if(visu){
+      plot(densfit,xlab=name)
+      lines(rep(estimate[1],2),c(0,vals[1]),col="black")
+      for(q in 2:4){
+	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
+      }
+      if(!is.null(true.val)){
+	abline(v=true.val,col="green")
+      }
+
+      if(leg){ # legend
+	# legend
+	if(mean(densfit$box)>estimate[3]){
+	  loc<-"topright"
+	}else{
+	  loc<-"topleft"
+	}
+	leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
+	leg.col<-c("blue","black")
+	if(!is.null(true.val)){
+	  leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
+	  leg.col<-c(leg.col,"green")
+	}
+	legend(loc,leg.text,col=leg.col,lty=1)
+      }
+    }
+  }else{
+    densfit<-NULL
+    vals<-NULL
+  }
+  attributes(estimate)$densfit<-densfit
+  attributes(estimate)$vals<-vals
+
+  return(estimate)
+}
+group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=strongColors){
+  estimates<-list()
+  if(!is.null(db)){
+    db<-as.data.frame(db)
+    if(!is.null(db)){
+      maxdens<-0
+      for(monitored in names(db)){
+	estimates[[monitored]]<-get.estimate(db[,monitored],visu=FALSE)
+	if(visu){
+	  densfit<-attributes(estimates[[monitored]])$densfit
+	  r<-densfit$box
+	  vals<-seq(r[1],r[2],(r[2]-r[1])/100)
+	  maxDensMon<-max(predict(densfit,vals))
+	  maxdens<-max(maxdens,maxDensMon)
+	}
+      }
+      if(visu){
+	palette(pal)
+	if(is.null(main)){
+	  if(length(names(db))<length(palette())){
+	    main<-paste(names(db))
+	  }else{
+	    main<-paste(names(db)[1],"...",tail(names(db),1))
+	  }
+	}
+	plot(range(db),c(0,maxdens),type="n",main=main,xlab="Value",ylab="Density")
+	for(monitored in names(db)){
+	  col<-which(names(db)==monitored)
+	  lines(attributes(estimates[[monitored]])$densfit,col=col)
+	  if(!is.null(true.vals[monitored])){
+	    abline(v=true.vals[monitored],col=col)
+	  }
+	}
+	if(is.null(leg)){
+	  leg<-(length(names(db))<length(palette()))
+	}
+	if(leg){
+	  legend("topleft",names(db),col=(1:length(names(db))),lty=1)
+	}
+	palette("default")
+      }
+    }
+  }
+  return(invisible(estimates))
+}
+
+posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){
+  ### plot posteriors and get estimates
+
+  estimates<-list()
+  ## monitored parameters and variables
+  sampled<-get.sampled(dbFit=dbFit,samples=samples)
+
+  if(!is.null(sampled$T)){
+    if(visu){
+      dev.new()
+      par(mfrow=c(2,2))
+    }
+    estimates$T<-get.estimate(sampled$T,name="Across barrier factor (sigma)",leg=FALSE,visu=visu)
+    estimates$f<-get.estimate(sampled$f,name="Charac. Dist. ",leg=FALSE,visu=visu)
+    estimates$meanBeta<-get.estimate(sampled$meanBeta,name="Mean rate obs.",leg=FALSE,visu=visu)
+    estimates$meanSBshare<-get.estimate(sampled$meanSBshare,name="Mean share SG",leg=TRUE,visu=visu)
+  }else{
+    if(visu){
+      dev.new()
+      par(mfrow=c(3,6))
+    }
+    for(var in 1: length(names(sampled))){
+      nameVar<-names(sampled)[var]
+      estimates[[nameVar]]<-get.estimate(sampled[,nameVar],name=nameVar,leg=FALSE,visu=visu)
+    }
+  }
+
+  ## cofactors
+  c.vals<-get.cofactors(dbFit=dbFit,samples=samples)
+  estimates<-c(estimates,group.posteriors(c.vals,main="Cofactors' posteriors",visu=visu))
+
+  ## inspectors
+  betas<-get.betas(dbFit=dbFit,samples=samples)
+  estimates<-c(estimates,group.posteriors(betas,main="Observers' posteriors",visu=visu))
+
+  attributes(estimates)$sizeEstimate<-dim(sampled)[1]
+
+  return(invisible(estimates))
+}
+
+summary.spatcontrol<-function(estimates=NULL,samples=NULL,dbFit=NULL){
+  # compute it if needed
+  if(is.null(estimates)){
+    estimates<-posteriors.mcmc(visu=FALSE,samples=samples,dbFit=dbFit)
+  } 
+  # format it for easy printing
+  toPrint<-t(as.data.frame(estimates))
+
+  # keep only the necessary
+  keepVar<-function(varVals){
+    # do not keep NA filled
+    NotGood1<-all(is.na(varVals))
+    # do not keep invariant
+    NotGood2<-all(varVals==varVals[1])
+    return(!NotGood1 && !NotGood2)
+  }
+  toPrint<-toPrint[apply(toPrint,1,keepVar),]
+
+  # reorder for better visibility
+  toPrint<-toPrint[,c(1,3,2,4)]
+  # names(toPrint)<-c("Mean","Median","2.5%","97.5%")
+  print(toPrint,digits=2)
+
+  # # fill up with blanks the parameters names
+  # NameParam<-"Parameter"
+  # maxNcharName<-max(nchar(c(NameParam,names(estimates))))
+  # nBlankToAdd<-maxNcharName-nchar(NameParam)
+  # NameParam<-paste(NameParam,paste(rep(" ",nBlankToAdd),collapse=""),sep="")
+
+  # printed<-paste("\n",NameParam,"\tMean\tMedian \tCrI at 95%\n",sep="")
+  # for(p in 1:length(estimates)){
+  #   if(!is.na(estimates[[p]][2])){
+  #     if(estimates[[p]][2]!=estimates[[p]][4]){ # do no display not fitted
+  #       NameParam<-names(estimates)[p]
+  #       nBlankToAdd<-maxNcharName-nchar(NameParam)
+  #       NameParam<-paste(NameParam,paste(rep(" ",nBlankToAdd),collapse=""),sep="")
+  #       est<-round(estimates[[p]][1:4],digits=2)
+  #       printed<-paste(printed,NameParam,"\t",paste(est[1],"\t",est[3],"\t[",est[2],",",est[4],"]",sep=""),"\n",sep="",collapse="")
+
+  #     }
+  #   }
+  # }
+  # cat(printed)
+  return(invisible(toPrint))
+}
+
+
