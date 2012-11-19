@@ -5,11 +5,10 @@
 #=======================
 # Priors and quantitative parameters of the model
 #=======================
-threshold <- 50; # max number of meters to consider neighbourgs
 
 ## spatial component
-fprior=40 # MUST be adapted to the expected scale of the autocorrelation, in the same unit than the x,y of the points
-sdlf<-2 # prior deviation for f on the log scale
+fprior=20 # MUST be adapted to the expected scale of the autocorrelation, in the same unit than the x,y of the points
+sdlf<-1 # prior deviation for f on the log scale, usually safer to set it to 1
 # can be downsized if divergence problems
 logsdfprop<-0.1 # initial log sd for proposal
 
@@ -22,7 +21,8 @@ Kushape <- 0.001; Kuscale <- 1000; # parameter of Ku prior
 epsilon <- 0.01 # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
 
 ## non spatial component
-Kc<-0.01; # prior precision of the cofactors, arround 0
+# Kc<-0.01; # prior precision of the cofactors, arround 0
+Kc<-1/sqrt(2.5) # gelman's prior scale for coefficients in arm/bayesglm
 
 Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 
@@ -30,7 +30,7 @@ Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 abeta <- 1; ## (18,2) allow to have the mean at 0.9
 bbeta <- 1; ## (1,1) gives flat prior
 
-priorinspquality<- 0.696 # if insp not fitted quality of inspectors
+priorinspquality<- 1 # if insp not fitted quality of inspectors
 
 #=======================
 # Starting values (kept all along if not fitted)
