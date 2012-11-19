@@ -10,11 +10,11 @@ source("extrapol_field.R",local=TRUE)
 # Data preparation
 #==================
 # simulation name (for use with sec_launch.sh)
-nameSimul<-"fullOnData"
+nameSimul<-"firstFullOnGenerated"
 
 # effect of streets assessment on Paucarpata (Barbu 2012)
-db<-read.csv("OriginalDataPaucarpata.csv")
-# db<-read.csv("JitteredDataPaucarpata.csv")
+# db<-read.csv("OriginalDataPaucarpata.csv")
+db<-read.csv("JitteredDataPaucarpata.csv")
 # Nota: the format of these data is not "perfect" on purpose
 #       to remind important "checks" in the cleaning up of data
 #       in addition, duplicates should be avoided as the behavior 

@@ -3464,11 +3464,9 @@ posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){
   ## cofactors
   c.vals<-get.cofactors(dbFit=dbFit,samples=samples)
   estimates<-c(estimates,group.posteriors(c.vals,main="Cofactors' posteriors",visu=visu))
-
   ## inspectors
   betas<-get.betas(dbFit=dbFit,samples=samples)
   estimates<-c(estimates,group.posteriors(betas,main="Observers' posteriors",visu=visu))
-
   attributes(estimates)$sizeEstimate<-dim(sampled)[1]
 
   return(invisible(estimates))
@@ -3497,26 +3495,6 @@ summary.spatcontrol<-function(estimates=NULL,samples=NULL,dbFit=NULL){
   # names(toPrint)<-c("Mean","Median","2.5%","97.5%")
   print(toPrint,digits=2)
 
-  # # fill up with blanks the parameters names
-  # NameParam<-"Parameter"
-  # maxNcharName<-max(nchar(c(NameParam,names(estimates))))
-  # nBlankToAdd<-maxNcharName-nchar(NameParam)
-  # NameParam<-paste(NameParam,paste(rep(" ",nBlankToAdd),collapse=""),sep="")
-
-  # printed<-paste("\n",NameParam,"\tMean\tMedian \tCrI at 95%\n",sep="")
-  # for(p in 1:length(estimates)){
-  #   if(!is.na(estimates[[p]][2])){
-  #     if(estimates[[p]][2]!=estimates[[p]][4]){ # do no display not fitted
-  #       NameParam<-names(estimates)[p]
-  #       nBlankToAdd<-maxNcharName-nchar(NameParam)
-  #       NameParam<-paste(NameParam,paste(rep(" ",nBlankToAdd),collapse=""),sep="")
-  #       est<-round(estimates[[p]][1:4],digits=2)
-  #       printed<-paste(printed,NameParam,"\t",paste(est[1],"\t",est[3],"\t[",est[2],",",est[4],"]",sep=""),"\n",sep="",collapse="")
-
-  #     }
-  #   }
-  # }
-  # cat(printed)
   return(invisible(toPrint))
 }
 
