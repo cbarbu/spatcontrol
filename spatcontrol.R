@@ -57,7 +57,7 @@ removeCol <- function(Table,colNames){
 	return(Table[,names(Table)[-which(names(Table) %in% colNames)]])
 }
 
-
+## given input matrix A
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
@@ -89,10 +89,12 @@ resized<-function(A,nr=nrow(A),nc=ncol(A)){
     out <- head(out, n)
   out
 }
+
 # shorthand
 lsos <- function(..., n=10) {
   .ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n)
 }
+
 #-----------------
 # convert to utms
 #-----------------
@@ -119,6 +121,7 @@ LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in thi
 
 	return(our.utms)
 }
+
 # H may be "S" or "N" if UTMs in South or North hemisphere
 our.utms.to.LL<-function(our.utms,zone=FALSE,H=FALSE){ # columns must be X and Y in this order
 	names(our.utms)<-c("X","Y")
@@ -317,7 +320,7 @@ dmvnorm.canonical<-function(r,b,Q,logout=TRUE,cholQ=NULL,...){
 }
 
 dmvnorm.prec<-function(r,mu,Q,logout=TRUE,...){
-	# recicling chol and tweaking it (see help(chol)) could still save a lot of time
+	# recycling chol and tweaking it (see help(chol)) could still save a lot of time
 	cholQ <- chol.spam(Q,...);
 	# log.det<- -2*determinant(cholQ)$modulus;
 	# log.det<- determinant.spam(Q,Rstruct=cholQ)$modulus
@@ -3187,7 +3190,7 @@ attributes(db)$Kthin<-Kthin
 attributes(db)$freqsave<-freqsave
 attributes(db)$nbiterations<-nbiterations
 
-save(list=ls(),file="EndSampleImage.img") # allow to examin the environment later
+save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
 return(db)
 }
@@ -3268,9 +3271,9 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 }
 traces<-function(db,nl=3,nc=4){
   db<-as.data.frame(db)
-  if(dim(db)[2]>100){
+  pch <- "."
+  if(dim(db)[1]>100){
     type="p"
-    pch<-"."
   }else{
     type="l"
   }
