@@ -1,4 +1,4 @@
-source("extrapol_field.R")
+source("spatcontrol.R")
 nameSimul<-"FullonGen"
 db<-read.csv("JitteredDataPaucarpata.csv")
 # avoid a number of miscodifications
@@ -22,6 +22,4 @@ dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=-1,threshold=5
 samples<-trace.mcmc()
 estimates<-posteriors.mcmc(samples=samples,dbFit=dbFit)
 summary.spatcontrol(estimates=estimates)
-
-
 

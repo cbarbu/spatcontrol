@@ -1,5 +1,5 @@
 ## get to minimal, publishable dataset
-source("extrapol_field.R")
+source("spatcontrol.R")
 db<-read.csv("DB_simple_Pau_cyclo1_19Jul2011_blockSize.csv",header=TRUE);
 db<-db[order(db$easting,db$northing,db$status,db$collector),]
 
