@@ -1863,7 +1863,7 @@ sample_f <- function(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NU
 	LLH <-LLHu+llhf;
 	lnr <- LLHproposal-LLH+hasting_term;
 
-	cat("f:",f," LLH:",LLH,"(",LLHu,"+",llhf,") f prop:",f_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhfprop,") h_t:",hasting_term," lnr",lnr,sep="");
+	# cat("f:",f," LLH:",LLH,"(",LLHu,"+",llhf,") f prop:",f_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhfprop,") h_t:",hasting_term," lnr",lnr,sep="");
 
 	if(lnr>=log(runif(1))) {
 		f <- f_prop;
@@ -1871,10 +1871,10 @@ sample_f <- function(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NU
 		cholQ<-cholQprop;
 		LLHu<-LLHuprop;
 		acceptf<<-c(acceptf,1);
-		cat(" accept 1\n");
+		# cat(" accept 1\n");
 	}else{
 		acceptf<<-c(acceptf,0);
-		cat("accept 0\n");
+		# cat("accept 0\n");
 	}
 	return(list(f=f,Q=Q,LLHu=LLHu,cholQ=cholQ));
 }
@@ -1901,7 +1901,7 @@ sample_T <- function(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NUL
   LLH <- 	       LLHu+llhT;
   lnr <- LLHproposal-LLH+hasting_term;
 
-  cat("T:",T," LLH:",LLH,"(",LLHu,"+",llhT,") T prop:",T_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhTprop,") h_t:",hasting_term," lnr",lnr,sep="");
+  # cat("T:",T," LLH:",LLH,"(",LLHu,"+",llhT,") T prop:",T_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhTprop,") h_t:",hasting_term," lnr",lnr,sep="");
 
   if(lnr>=log(runif(1))) {
     T <- T_prop;
@@ -1909,10 +1909,10 @@ sample_T <- function(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NUL
     cholQ<-cholQprop;
     LLHu<-LLHuprop;
     acceptT<<-c(acceptT,1);
-    cat(" accept 1\n");
+    # cat(" accept 1\n");
   }else{
     acceptT<<-c(acceptT,0);
-    cat("accept 0\n");
+    # cat("accept 0\n");
   }
   return(list(T=T,Q=Q,LLHu=LLHu,cholQ=cholQ));
 }
@@ -2208,15 +2208,15 @@ sampleKvMHunifSigma<-function(Kv,v,logsdDraw){
 
 	lnr <- LLHproposal-LLH+hasting_term;
 
-	cat("sigv:",sig," LLH:",LLH," sigv prop:",sigProp," LLHproposal:",LLHproposal," lnr",lnr,sep="");
+	# cat("sigv:",sig," LLH:",LLH," sigv prop:",sigProp," LLHproposal:",LLHproposal," lnr",lnr,sep="");
 
 	if(lnr>=log(runif(1))) {
 		Kv <- 1/(sigProp^2);
 		acceptKv<<-c(acceptKv,1);
-		cat(" accept 1\n");
+		# cat(" accept 1\n");
 	}else{
 		acceptKv<<-c(acceptKv,0);
-		cat("accept 0\n");
+		# cat("accept 0\n");
 	}
 	return(list(Kv=Kv));
 }
@@ -2880,7 +2880,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
-	  cat("Ku",Ku,"Kv",Kv,"\n");
+	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
 	  x <- fastsamplexuv(dimension,cholR,y-wnotr);
 	}
@@ -2893,7 +2893,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
 	  K[1]<-Ku;
-	  cat("Ku",Ku,"\n");
+	  # cat("Ku",Ku,"\n");
 	}
       }
     }else{ # no spatial component
@@ -2943,7 +2943,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   if(use.insp){
     beta <- samplebeta(zpos,zneg,inspector,yprime,abeta,bbeta);
     bivect <- as.vector(inspector %*% beta);
-    cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
+    # cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
   }
 
   if(lastAdaptProp<num.simul){
@@ -3040,7 +3040,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   meanSBshare<-mean(SBshares,na.rm=TRUE)
   meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
   sumSBshares<-sumSBshares+SBshares
-  cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
+  # cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
   }else{
   }
 
@@ -3143,7 +3143,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
     lastsaved<-num.simul+1
     ## manual stop
-    try(source("manual.stop.r",local=TRUE))
+    try(source("manual_stop.r",local=TRUE))
   }
   
   num.simul<-num.simul+1
