@@ -24,16 +24,17 @@ db<-read.csv("JitteredDataPaucarpata.csv")
 db<-set_to(db,init=c("NULL"),final=0)
 
 # avoid geographic unknowns
-db<-db[which(!is.na(db$easting)),]
+db<-db[which(!is.na(db$X)),]
 
-# setting the names as required by extrapol.spatautocorel()
-db<-changeNameCol(db,"easting","X") # from "easting" to "X"
-db<-changeNameCol(db,"northing","Y")
-db<-changeNameCol(db,"infested","positive")
-db<-changeNameCol(db,"open","observed")
-db<-changeNameCol(db,"cityBlockNum","GroupNum")
-db<-changeNameCol(db,"inspector","IdObserver")
+# # Careful: setting the names is required by extrapol.spatautocorel()
+# db<-changeNameCol(db,"easting","X") # from "easting" to "X"
+# db<-changeNameCol(db,"northing","Y")
+# db<-changeNameCol(db,"infested","positive")
+# db<-changeNameCol(db,"open","observed")
+# db<-changeNameCol(db,"cityBlockNum","GroupNum")
+# db<-changeNameCol(db,"inspector","IdObserver")
 
+# avoid NAs in positive
 db$positive[which(is.na(db$positive))]<-0
 
 # overview
@@ -58,7 +59,7 @@ legend("bottomleft",c("fitting dataset","validation dataset","infested"),col=c("
 set.seed(777) # to be able to reproduce the results
 
 # # fit only the cofactors, with a random error term
-# Don't do that as it has no intercept yet
+# # No option yet to fit the intercept so this is probably not what you want to do
 # dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1 & db$observed==1),-which(names(db) %in% c("GroupNum","IdObserver","X","Y"))],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
 
 
@@ -77,24 +78,4 @@ plot_reel(dbFit$X,dbFit$Y,dbFit$p.i,base=0,top=1,main="Probability of being posi
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.u,base=0,top=1,main="Estimated spatial component")
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.v+dbFit$est.c,base=0,top=1,main="Estimated non-spatial component")
 plot_reel(dbFit$X,dbFit$Y,dbFit$est.obs,base=0,top=1,main="Estimated observation quality")
-
-
-# #=======================
-# # Generation parameters
-# #=======================
-# 
-# ## generation parameters
-# Ku.r <- 1# rgamma(n=1, shape=K.hyper[1], scale=K.hyper[2]);
-# use.v.gen<-TRUE;
-# Kv.r <- 10; # rgamma(n=1, shape=K.hyper[3], scale=K.hyper[4]);
-# Kc.r <- 10;
-# Delta.r <-0; # <- rtnorm(1,mean=muDelta,sd=sdDelta,lower=0,upper=Inf); # the supplementary distance due to streets in meters
-# f.r<- 22.28 # characteristic distance
-# # or simply permit the identification of Delta
-# T.r=0.25 # taux d'association accross streets over association within blocks
-# # need to be small enough to allow for the identication of Delta
-# mu.r<- -1.89
-# mv.r<-0
-# beta.r<-1
-
 

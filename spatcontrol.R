@@ -2423,9 +2423,7 @@ fit.spatautocorel<-function(db=NULL,
   # uncommenting break() in manual.stop.r
 
   # source(pfile)
-  source("parameters_extrapol.r")
-  
-  # check fondamental variables present
+  source("parameters_extrapol.R") # mainly parameters priors
   if(is.null(db$positive)){
     cat("\nMissing \"positive\" in db. Aborting.\n")
     return(NULL)
