@@ -6,3 +6,10 @@ betasamples.txt
 output.lst
 .Rhistory
 *.o
+OriginalDataPaucarpata.csv
+EndSampleImage.img
+Rprof.out
+cofactors.txt
+convergence_tests.txt
+estimated.txt
+sampled.txt
