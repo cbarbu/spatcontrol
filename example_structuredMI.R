@@ -20,4 +20,3 @@ sMI<-structured.moransI(mats_neigh=mats.neigh,db$positive,nb_rep_sign=9) # compu
 
 plot.structured.moransI(sMI) # plotting of the correlograms and significance
 
-
