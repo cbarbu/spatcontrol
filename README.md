@@ -26,7 +26,7 @@ Other utility functions can be found in spatcontrol.R, organized into chapters:
 - General purpose functions (data management, sparse matrices handling, plotting)
 - Functions specific to the structured autocorrelograms
 - Map generation
-- Functions specific to the GMRF
+- Functions specific to the Latent Class Gaussian field model
 
 Credits:
 ----------------------------------
