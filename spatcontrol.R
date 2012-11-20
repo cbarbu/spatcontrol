@@ -2420,7 +2420,7 @@ fit.spatautocorel<-function(db=NULL,
   # nbiterations: nb of iterations of the MCMC chain if <0 the mcmc is automatically stopped when raftery and geweke diagnostic are satisfied (can take days)
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
-  # uncommenting break() in manual.stop.r
+  # uncommenting break() in manual_stop.R
 
   # source(pfile)
   source("parameters_extrapol.R") # mainly parameters priors
@@ -3143,7 +3143,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
     lastsaved<-num.simul+1
     ## manual stop
-    try(source("manual_stop.r",local=TRUE))
+    try(source("manual_stop.R",local=TRUE))
   }
   
   num.simul<-num.simul+1
