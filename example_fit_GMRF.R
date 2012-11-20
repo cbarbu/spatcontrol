@@ -64,7 +64,10 @@ set.seed(777) # to be able to reproduce the results
 
 
 # Full
-dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=-1,threshold=100,nocheck=FALSE,cofactors=c("CU","PE","oanimal","I.NO","P.NO"),kern="exp",use.v=TRUE)
+
+dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=600,cofactors=c("CU","PE","oanimal","I.NO","P.NO"))
+# Nota: for a reasonable fit you should better use nbiterations=500000 or -1 
+# for autostopping
 
 samples<-trace.mcmc()
 estimates<-posteriors.mcmc(samples=samples,dbFit=dbFit)
