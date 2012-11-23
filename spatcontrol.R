@@ -859,7 +859,7 @@ get.med.position.axis<-function(distances){
 	axis(1,at=seq(1:length(left.lim)), lab=labels.axis)
 	return(med.position)
 }
-zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE){
+zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE,poi=NULL,poni=NULL){
   # generate the positiveness according to estimates
   # Necessary:
   # detection: quality of detection for each point
@@ -922,13 +922,29 @@ zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NU
 	}
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
-	cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
+	o.p<-0*y.p
+	if(!is.null(zNA)){
+		cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
+		o.p[!zNA]<-0
+	}else{
+		## opening
+		o.p[y.p>0]<-rbinom(count(y.p>0),1,poi)
+		o.p[y.p<=0]<-rbinom(count(y.p<=0),1,poni)
+		cat("mean o.p",mean(o.p),"poi:",poi,"poni:",poni,"\n")
+		zNA<-which(o.p==0)
+		## observation
+		# attribute points to observers
+
+		# to be done, for now set detection to 1
+		detection<-rep(1,length(detection))
+	}
 	z.p <-generate_z(y.p,detection,zNA)
+
 	cat("mean z.p",mean(z.p[!is.na(z.p)]),"\n")
 
-	return(list(z=z.p,y=y.p,w=w.p,v=v.p,c=c.p,u=u.p))
+	return(list(z=z.p,y=y.p,o=o.p,w=w.p,v=v.p,c=c.p,u=u.p))
 }
-gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01){
+gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01,poni=NULL,poi=NULL){
   # simpler wrapper calling zgen
   # for map generations
 
@@ -941,24 +957,43 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
   # kern: the kernel to use (expKernel,gaussianKernel, cauchyKernel or geometricKernel). If f and T have been estimated the kernel here should correspond to the one used to estimate them.
   # obs.qual: vector of the quality of the observers, default to 1 (all perfect). It can be set to a real in [0,1], applied to all points; a vector the same length than db, each then applied to its point; or be a vector with named values corresponding to the levels in db$IdObserver, then applied to these same Observers. In the last case, if observers do not have an estimate in obs.qual there value is fixed to the mean of obs.qual
 
-  nPoints<-dim(db)[1]
-  # get the Q precision matrix
-  cat("Generating the distance matrix...\n")
-  dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
-  diag(dist_mat)<- rep(0,dim(dist_mat)[1])
-  dbout<-db[,c("X","Y")]
+	nPoints<-dim(db)[1]
+	# get the Q precision matrix
+	cat("Generating the distance matrix...\n")
+	dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
+	diag(dist_mat)<- rep(0,dim(dist_mat)[1])
+	dbout<-db[,c("X","Y")]
 
-  # Missing information
-  if(randomizeNA){
-    cat("Generating missingness...\n")
-    nNA<-sum(db$observed==0)
-    zNA<-sample(nNA,1:nPoints)
-  }else{
-    cat("Keeping missingness\n")
-    zNA<-which(db$observed==0)
+	# Missing information
+	if(randomizeNA){
+		cat("Missingness structure...\n")
+		if(!is.null(poi) || !is.null(poni)){
+			if(!is.null(poi) && !is.null(poni)){
+				pOpen<-NULL
+			}else if(!is.null(poi)){
+				pOpen <- poi
+			}else{
+				pOpen <- poni
+			}
+			cat("Opening rate:",pOpen,"\n")
+		}else{
+			cat("Opening independant from infestation")
+			pOpen<-sum(db$observed==1)/length(db$observed)
+		}
+		if(!is.null(pOpen)){
+			o.gen<-rbinom(dim(db)[1],1,pOpen)
+			zNA<-which(o.gen==0)
+		}else{
+			zNA<-NULL
+		}
+	}else{
+		cat("Keeping missingness\n")
+		zNA<-which(db$observed==0)
+	}
+  if(!is.null(zNA)){
+	  dbout$observed<-rep(0,dim(dbout)[1])
+	  dbout$observed[-zNA]<-1
   }
-  dbout$observed<-rep(0,dim(dbout)[1])
-  dbout$observed[-zNA]<-1
 
   # spatial groupings
   if(!is.null(db$GroupNum)){
@@ -1023,7 +1058,8 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
 
   # generate spatial autocorrelation and final values
   cat("Generating autocorrelation...\n")
-  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp)
+  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp,poi=poi,poni=poni)
+  dbout$observed<-simul$o
   dbout$positive<-simul$z
   dbout$ygen<-simul$y
   dbout$wgen<-simul$w
@@ -2010,12 +2046,11 @@ sample_u <- function(dimension,Q,K,y,cholQ=NULL){
 # of one being the lower limit of the other and this limit being 0
 # this allow specifically to sample y, the "continuous reality" in the probit model
 # directly according to the data
-
 # to pick something according to the previous curve
 sample_composite_ptnorm_vect <- function(xvect,bivect){
 	# sample y given that it's density is a normalized sum of 
 	# dnorm(xvect,1,0,+Inf)*(1-beta)+dnorm(xvect,1,-Inf,0)
-	# xvect: probability of being 1 vs. 0
+	# xvect: probit predictor of y :y ~ N(xvect,1)
 	# bivect: probability of being observed as 1 vs. 0
 	l<-length(xvect);
 	# cat("l",l);
@@ -3272,7 +3307,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 
   return(betas)
 }
-traces<-function(db,nl=3,nc=4){
+traces<-function(db,nl=3,nc=4,true.vals=NULL){
   db<-as.data.frame(db)
   pch <- "."
   if(dim(db)[1]>100){
@@ -3281,11 +3316,20 @@ traces<-function(db,nl=3,nc=4){
     type="l"
   }
   for(num in 1:length(names(db))){
-    if(num %% (nl*nc) ==1){ 
-      dev.new()
-      par(mfrow=c(nl,nc))
-    }
-    plot(db[[num]],main=names(db)[num],pch=pch,type=type)
+	  if(num %% (nl*nc) ==1){ 
+		  dev.new()
+		  par(mfrow=c(nl,nc))
+	  }
+	  name<-names(db)[num]
+	  if(name %in% names(true.vals)){
+		  ylim<-range(true.vals[[name]],db[[num]])
+	  }else{
+		  ylim<-range(db[[num]])
+	  }
+	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
+	  if(name %in% names(true.vals)){
+		  abline(h=true.vals[[name]],col="green")
+	  }
   }
 }
 
