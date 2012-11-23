@@ -14,6 +14,9 @@ library(fields)
 #===============================
 # General purpose functions
 #===============================
+count<-function(vect){
+	return(length(which(vect)))
+}
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
     # if possible to change the column to numeric do it
