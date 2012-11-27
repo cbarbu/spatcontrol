@@ -2,7 +2,7 @@ library(spam);
 library(sp)
 library(msm)
 library("truncnorm")
-library("PBSmapping")
+# library("PBSmapping")
 library(testthat)
 library(Hmisc)
 library(plotrix)
@@ -22,7 +22,7 @@ set_to<-function(x,init=c("NULL"),final=0){
     if(class(x) != 'data.frame')
         stop('x must be a data.frame')
     if(length(final)>1){
-        warning("final is of length >1, will only use first item\n")
+        warning("final is of length >1, will o# nly use first item\n")
     }
 
     isfacts <- sapply(x, is.factor)
@@ -98,10 +98,394 @@ lsos <- function(..., n=10) {
 #-----------------
 # convert to utms
 #-----------------
+
+# copy from PBSmapping given that so bad to install
+.validateData <- function(data, className,
+			                            requiredCols = NULL, requiredAttr = NULL,
+						                              noFactorCols = NULL, noNACols = NULL, keyCols = NULL,
+									                                numericCols = NULL)
+	# An element of noNACols and keyCols will only be used if it exists in the
+	# data.  To ensure it exists in the data, make it a requiredCol.
+{
+	  # convert matrix to data frame
+	  if (is.matrix(data)) {
+		      data <- .mat2df(data);
+  }
+
+  if (is.data.frame(data) && (nrow(data) > 0)) {
+	      # validate optional class name
+	      if (!is.null(className) && (class(data)[1] != "data.frame")) {
+		            if (class(data)[1] != className) {
+				            return(paste("Unexpected class (", class(data)[1], ").\n", sep=""));
+        }
+      }
+
+      # ensure all the required columns exist in the PolySet
+      if (!is.null(requiredCols) &&
+	          !all(is.element(requiredCols, names(data)))) {
+	            return(paste("One or more of the required columns is missing.\n",
+				       "Required columns: ", paste(requiredCols, collapse = ", "), ".\n", sep=""));
+          }
+
+          # ensure all the required attributes exists in the PolySet
+          if (!is.null(requiredAttr) &&
+	              !all(is.element(requiredAttr, names(attributes(data))))) {
+		        return(paste("One or more of the required attributes is missing.\n",
+				           "Required attributes: ", paste(requiredAttr, collapse = ", "), ".\n", sep=""));
+	      }
+
+          # check for NAs
+          presentCols <- intersect(noNACols, names(data));
+	      if (length(presentCols) > 0) {
+		            # build an expression
+		            exprStr <- paste(paste("any(is.na(data$", presentCols, "))", sep=""), collapse=" || ");
+	        if (eval(parse(text=exprStr))) {
+			        return(paste("One or more columns (where NAs are not allowed) contains NAs.\n",
+					             "Columns that cannot contain NAs: ", paste(presentCols, collapse = ", "),
+						             ".\n", sep=""));
+		      }
+		    }
+
+	      # check for factors
+	      presentCols <- intersect(noFactorCols, names(data));
+	          if (length(presentCols) > 0) {
+			        # build an expression
+			        exprStr <- paste(paste("is.factor(data$", presentCols, ")", sep=""), collapse=" || ");
+	            if (eval(parse(text=exprStr))) {
+			            return(paste("One or more columns contains factors where they are not allowed.\n",
+						         "Columns that cannot contain factors: ", paste(presentCols, collapse = ", "),
+							         ".\n", sep=""));
+		          }
+		        }
+
+	          # check for uniqueness of the keys
+	          presentCols <- intersect(keyCols, names(data));
+		      if (length(presentCols) > 0) {
+			            if (length(presentCols) == 1) {
+					            keys <- data[[presentCols]];
+		        } else if ((length(presentCols) == 2)
+				                    && ((length(intersect(presentCols, c("PID","SID","POS","EID"))) == 2)
+							                     || (all(is.integer(data[[presentCols[1]]]))
+										                          && all(is.integer(data[[presentCols[2]]]))))) {
+				        # additional tests above to "ensure" the two columns contain integers
+				        keys <- .createIDs(data, cols=presentCols);
+			      } else {
+				              # paste the columns together
+				              exprStr <- paste("paste(",
+							                          paste(paste("data$", presentCols, sep=""), collapse=", "),");", sep="");
+			              keys <- eval(parse(text=exprStr));
+				            }
+
+			      # at this point, 'keys' is a vector
+			      if (any(duplicated(keys))) {
+				              return(paste("The 'key' for each record is not unique.\n",
+							           "Columns in key: ", paste(presentCols, collapse = ", "), ".\n", sep=""));
+			            }
+			    }
+
+		      # check for numeric columns
+		      presentCols <- intersect(numericCols, names(data));
+		          if (length(presentCols) > 0) {
+				        exprStr <- paste(paste("any(!is.numeric(data$", presentCols, "))", sep=""), collapse=" || ");
+		            if (eval(parse(text=exprStr))) {
+				            return(paste("One or more columns requires numeric values, but contains non-numerics.\n",
+							         "Columns that must contain numerics: ", paste(presentCols, collapse = ", "),
+								         ".\n", sep=""));
+			          }
+			        }
+
+		          # check for increasing/descreasing POS
+		          if (!is.null(className) && className == "PolySet") {
+				        idx <- .createIDs(data, cols=c("PID", "SID"));
+			        idxFirst <- which(!duplicated(idx));
+				      idxLast <- c((idxFirst-1)[-1], length(idx));
+				      # identify the holes
+				      holes <- (data$POS[idxFirst] > data$POS[idxLast])
+				            # outer/inner contour indices
+				            idxOuter <- rep(!holes, times=((idxLast-idxFirst)+1))
+				            idxInner <- !idxOuter;
+
+					          # POS[i] < POS[i+1]?
+					          lt <- c(data$POS[1:(nrow(data)-1)] < data$POS[2:(nrow(data))], FALSE);
+
+					          # check outer contours; change last vertex of each polygon to
+					          # what we expect for valid outer contours
+					          lt[idxLast] <- TRUE;
+						        # check for any that aren't in order
+						        j <- any(!lt[idxOuter])
+						        if (j) {
+								        j <- !lt;
+							        j[idxInner] <- FALSE;
+								        # add 1 because it's actually the next row that break it
+								        j <- which(j) + 1;
+
+								        return(paste("POS column must contain increasing values for outer contours.\n",
+										             "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
+									      }
+
+							      # check inner contours; change last vertex of each polygon to what
+							      # we expect for valid inner contours
+							      lt[idxLast] <- FALSE;
+							      # check for any that aren't in order
+							      j <- any(lt[idxInner])
+							            if (j) {
+									            j <- lt;
+							              j[idxOuter] <- FALSE;
+								              # do not add 1
+								              j <- which(j);
+
+								              return(paste("POS column must contain decreasing values for inner contours.\n",
+											           "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
+									            }
+							          }
+			    } else {
+				        return(paste("The object must be either a matrix or a data frame.\n"));
+			      }
+    return(data);
+}
+
+.validateData <- function(data, className,
+			  requiredCols = NULL, requiredAttr = NULL,
+			noFactorCols = NULL, noNACols = NULL, keyCols = NULL,numericCols = NULL)
+	# An element of noNACols and keyCols will only be used if it exists in the
+	# data.  To ensure it exists in the data, make it a requiredCol.
+{
+	# convert matrix to data frame
+	if (is.matrix(data)) {
+		data <- .mat2df(data);
+	}
+
+	if (is.data.frame(data) && (nrow(data) > 0)) {
+		# validate optional class name
+		if (!is.null(className) && (class(data)[1] != "data.frame")) {
+			if (class(data)[1] != className) {
+				return(paste("Unexpected class (", class(data)[1], ").\n", sep=""));
+			}
+		}
+
+		# ensure all the required columns exist in the PolySet
+		if (!is.null(requiredCols) &&
+		    !all(is.element(requiredCols, names(data)))) {
+			return(paste("One or more of the required columns is missing.\n",
+				     "Required columns: ", paste(requiredCols, collapse = ", "), ".\n", sep=""));
+		}
+
+		# ensure all the required attributes exists in the PolySet
+		if (!is.null(requiredAttr) &&
+		    !all(is.element(requiredAttr, names(attributes(data))))) {
+			return(paste("One or more of the required attributes is missing.\n",
+				     "Required attributes: ", paste(requiredAttr, collapse = ", "), ".\n", sep=""));
+		}
+
+		# check for NAs
+		presentCols <- intersect(noNACols, names(data));
+		if (length(presentCols) > 0) {
+			# build an expression
+			exprStr <- paste(paste("any(is.na(data$", presentCols, "))", sep=""), collapse=" || ");
+			if (eval(parse(text=exprStr))) {
+				return(paste("One or more columns (where NAs are not allowed) contains NAs.\n",
+					     "Columns that cannot contain NAs: ", paste(presentCols, collapse = ", "),
+					     ".\n", sep=""));
+			}
+		}
+
+		# check for factors
+		presentCols <- intersect(noFactorCols, names(data));
+		if (length(presentCols) > 0) {
+			# build an expression
+			exprStr <- paste(paste("is.factor(data$", presentCols, ")", sep=""), collapse=" || ");
+			if (eval(parse(text=exprStr))) {
+				return(paste("One or more columns contains factors where they are not allowed.\n",
+					     "Columns that cannot contain factors: ", paste(presentCols, collapse = ", "),
+					     ".\n", sep=""));
+			}
+		}
+
+		# check for uniqueness of the keys
+		presentCols <- intersect(keyCols, names(data));
+		if (length(presentCols) > 0) {
+			if (length(presentCols) == 1) {
+				keys <- data[[presentCols]];
+			} else if ((length(presentCols) == 2)
+				   && ((length(intersect(presentCols, c("PID","SID","POS","EID"))) == 2)
+				       || (all(is.integer(data[[presentCols[1]]]))
+					   && all(is.integer(data[[presentCols[2]]]))))) {
+				# additional tests above to "ensure" the two columns contain integers
+				keys <- .createIDs(data, cols=presentCols);
+			} else {
+				# paste the columns together
+				exprStr <- paste("paste(",
+						 paste(paste("data$", presentCols, sep=""), collapse=", "),");", sep="");
+				keys <- eval(parse(text=exprStr));
+			}
+
+			# at this point, 'keys' is a vector
+			if (any(duplicated(keys))) {
+				return(paste("The 'key' for each record is not unique.\n",
+					     "Columns in key: ", paste(presentCols, collapse = ", "), ".\n", sep=""));
+			}
+		}
+
+		# check for numeric columns
+		presentCols <- intersect(numericCols, names(data));
+		if (length(presentCols) > 0) {
+			exprStr <- paste(paste("any(!is.numeric(data$", presentCols, "))", sep=""), collapse=" || ");
+			if (eval(parse(text=exprStr))) {
+				return(paste("One or more columns requires numeric values, but contains non-numerics.\n",
+					     "Columns that must contain numerics: ", paste(presentCols, collapse = ", "),
+					     ".\n", sep=""));
+			}
+		}
+
+		# check for increasing/descreasing POS
+		if (!is.null(className) && className == "PolySet") {
+			idx <- .createIDs(data, cols=c("PID", "SID"));
+			idxFirst <- which(!duplicated(idx));
+			idxLast <- c((idxFirst-1)[-1], length(idx));
+			# identify the holes
+			holes <- (data$POS[idxFirst] > data$POS[idxLast])
+			# outer/inner contour indices
+			idxOuter <- rep(!holes, times=((idxLast-idxFirst)+1))
+			idxInner <- !idxOuter;
+
+			# POS[i] < POS[i+1]?
+			lt <- c(data$POS[1:(nrow(data)-1)] < data$POS[2:(nrow(data))], FALSE);
+
+			# check outer contours; change last vertex of each polygon to
+			# what we expect for valid outer contours
+			lt[idxLast] <- TRUE;
+			# check for any that aren't in order
+			j <- any(!lt[idxOuter])
+			if (j) {
+				j <- !lt;
+				j[idxInner] <- FALSE;
+				# add 1 because it's actually the next row that break it
+				j <- which(j) + 1;
+
+				return(paste("POS column must contain increasing values for outer contours.\n",
+					     "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
+			}
+
+			# check inner contours; change last vertex of each polygon to what
+			# we expect for valid inner contours
+			lt[idxLast] <- FALSE;
+			# check for any that aren't in order
+			j <- any(lt[idxInner])
+			if (j) {
+				j <- lt;
+				j[idxOuter] <- FALSE;
+				# do not add 1
+				j <- which(j);
+
+				return(paste("POS column must contain decreasing values for inner contours.\n",
+					     "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
+			}
+		}
+	} else {
+		return(paste("The object must be either a matrix or a data frame.\n"));
+	}
+	return(data);
+}
+
+
+.validateXYData <- function(xyData)
+	# Perform some simple tests on the object to see if it can possibly be
+	# an xyData object.
+	# If the object is invalid, returns the error message.
+{
+	return(.validateData(xyData,
+			     className = NULL,
+			     requiredCols = c("X", "Y"),
+			     requiredAttr = NULL,
+			     noFactorCols = c("X", "Y"),
+			     noNACols = c("X", "Y"),
+			     keyCols = NULL,
+			     numericCols = c("X", "Y")));
+}
+
+
+convUL <-function (xydata, km = TRUE, southern = NULL) {
+	xydata <- .validateXYData(xydata)
+	if (is.character(xydata)) 
+		stop(paste("Invalid X/Y data 'xydata'.\n", xydata, sep = ""))
+	if (!is.element("projection", names(attributes(xydata))) || 
+	    (!is.element(attr(xydata, "projection"), c("LL", "UTM")))) {
+		stop("Missing or invalid projection attribute.\n")
+	}
+	if ((attr(xydata, "projection") == "LL") && (is.null(attr(xydata, 
+								  "zone")) || is.na(attr(xydata, "zone")))) {
+		m <- mean(xydata$X)
+		if ((m <= -180) || (m > 180)) {
+			stop(paste("Attempted to automatically calculate the missing 'zone' attribute, but", 
+				   "that failed because the mean longitude falls outside the range", 
+				   "-180 < x <= 180.  Please manually set the attribute and then try again.\n", 
+				   sep = "\n"))
+		}
+		attr(xydata, "zone") <- ceiling((m + 180)/6)
+		message("convUL: For the UTM conversion, automatically detected zone ", 
+			attr(xydata, "zone"), ".")
+	} else if (!is.element("zone", names(attributes(xydata))) || 
+		   (attr(xydata, "zone") < 1) || (attr(xydata, "zone") > 
+						  60)) {
+		stop("Invalid or missing zone attribute; possibly out of valid range.\n")
+	}
+	if (is.null(southern)) {
+		if (attr(xydata, "projection") == "LL") 
+			southern <- (mean(range(xydata$Y)) < 0)
+		else if (attr(xydata, "projection") == "UTM") 
+			southern <- FALSE
+		else stop("Projection attribute must be UTM or LL.")
+		message("convUL: Converting coordinates within the ", 
+			ifelse(southern, "southern", "northern"), " hemisphere.")
+	}
+	inXY <- c(xydata$X, xydata$Y)
+	outCapacity <- inVerts <- nrow(xydata)
+	inProj <- attr(xydata, "projection")
+	inZone <- attr(xydata, "zone")
+	if (inProj == "UTM") {
+		if (km) {
+			inXY <- inXY * 1000
+		}
+		toUTM <- FALSE
+	}
+	else {
+		toUTM <- TRUE
+	}
+	results <- .C("convUL", inXY = as.double(inXY), inVerts = as.integer(inVerts), 
+		      toUTM = as.integer(toUTM), zone = as.integer(inZone), 
+		      southern = as.integer(southern), outXY = double(2 * outCapacity), 
+		      outVerts = as.integer(outCapacity), outStatus = integer(1), 
+		      PACKAGE = "PBSmapping")
+	if (results$outStatus == 1) {
+		stop("Insufficient physical memory for processing.\n")
+	}
+	if (results$outStatus == 2) {
+		stop(paste("Insufficient memory allocated for output.  Please upgrade to the latest", 
+			   "version of the software, and if that does not fix this problem, please", 
+			   "file a bug report.\n", sep = "\n"))
+	}
+	outRows <- as.vector(results$outVerts)
+	if (outRows > 0) {
+		if (inProj == "LL" && km) 
+			results$outXY <- results$outXY/1000
+		xydata$X <- results$outXY[1:outRows]
+		xydata$Y <- results$outXY[(outCapacity + 1):(outCapacity + outRows)]
+		if (inProj == "UTM") {
+			attr(xydata, "projection") <- "LL"
+		} else {
+			attr(xydata, "projection") <- "UTM"
+		}
+		return(xydata)
+	} else {
+		return(NULL)
+	}
+}
+
+# perso
 LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in this order
 	coord<-as.data.frame(coord)
 	names(coord)<-c("X","Y")
-	
+
 	# only try to convert not NAs
 	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
 	coordDefined<-coord[sel,] 
