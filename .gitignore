@@ -13,3 +13,7 @@ cofactors.txt
 convergence_tests.txt
 estimated.txt
 sampled.txt
+archive
+example_PLoS_check.R
+example_PLoS_onGen.R
+example_PLoS_outputs.R
