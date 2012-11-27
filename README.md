@@ -30,7 +30,7 @@ Other utility functions can be found in spatcontrol.R, organized into chapters:
 
 Credits:
 ----------------------------------
-This package is maintained by Corentin Barbu currently at University of Pennsylvania in MZ Levy lab.
+This package is maintained by Corentin Barbu currently at University of Pennsylvania in Michael Levy's lab.
 
 The spatcontrol package is under development at the github repository: 
 https://github.com/cbarbu/spatcontrol 
