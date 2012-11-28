@@ -2947,8 +2947,8 @@ if(use.streets){
 # cat("at Q build\n T:",T,"f:",f,"Ku:",Ku,"Kv:",Kv,"\n")
 cholQ<-chol(Q);
 
-u<-rep(0,dimension);
-y<-rep(0,dimension);
+u<-rep(mu,dimension);
+y<-rep(mu,dimension);
 yprime <- (y>0);
 if(use.v){
 w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
@@ -3636,10 +3636,10 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
       name<-paste(name," thinned x",Nthin,sep="")
     }
 
-    if(class(densfit)!= "try-error"){
-    vals<-predict(densfit,estimate)
+    if(class(densfit)== "try-error"){
+	    vals<-NULL
     }else{
-	    valse<-NULL
+	    vals<-predict(densfit,estimate)
     if(visu){
       plot(densfit,xlab=name)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
@@ -3722,8 +3722,9 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
   return(invisible(estimates))
 }
 
-posteriors<-function(db,nl=3,nc=4,true.vals=NULL){
+posteriors<-function(db,nl=3,nc=4,true.vals=NULL,visu=TRUE){
 	db<-as.data.frame(db)
+	estimates<-list()
 	for(num in 1:dim(db)[2]){
 		if(num %% (nl*nc) ==1){ 
 			dev.new()
@@ -3735,8 +3736,9 @@ posteriors<-function(db,nl=3,nc=4,true.vals=NULL){
 		}else{
 			true.val<-NULL
 		}
-		get.estimate(db[,num],name=name,true.val=true.val)
+		estimates[[name]]<-get.estimate(db[,num],name=name,true.val=true.val,visu=visu)
 	}
+	return(estimates)
 }
 
 posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){
