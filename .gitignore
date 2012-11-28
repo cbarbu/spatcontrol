@@ -7,3 +7,8 @@ output.lst
 .Rhistory
 *.o
 OriginalDataPaucarpata.csv
+EndSampleImage.img
+cofactors.txt
+convergence_tests.txt
+estimated.txt
+sampled.txt
