@@ -3640,6 +3640,11 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 
     if(class(densfit)== "try-error"){
 	    vals<-NULL
+
+	  cat("Could not fit an estimate for",name,". Try cb.diag(thisVariable) and pass the not BurnIn part of the chain to get.estimate.\n")
+	  if(visu){
+		  hist(C,xlab=name)
+	  }
     }else{
 	    vals<-predict(densfit,estimate)
     if(visu){
@@ -3698,7 +3703,7 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
 	palette(pal)
 	if(is.null(main)){
 	  if(length(names(db))<length(palette())){
-	    main<-paste(names(db))
+	    main<-paste(names(db),collapse="/")
 	  }else{
 	    main<-paste(names(db)[1],"...",tail(names(db),1))
 	  }
