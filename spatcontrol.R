@@ -2735,7 +2735,6 @@ fit.spatautocorel<-function(db=NULL,
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
 
-
   cat("Account for spatial autocorrelation:")
   if(!is.null(db$X)){
     use.spat<-TRUE
@@ -2771,7 +2770,6 @@ fit.spatautocorel<-function(db=NULL,
     dm<-mat.or.vec(dim(db)[1],dim(db)[1])
     dist_mat<-as.spam(dm)
   }
-
   if(!is.null(db$GroupNum)){
     use.streets<-TRUE
     SB <- nearest.dist(x=cbind(db$GroupNum,rep(0,length(db$GroupNum))), method="euclidian", upper=NULL,delta=0.1)
@@ -2801,6 +2799,10 @@ fit.spatautocorel<-function(db=NULL,
   }
   if(use.spat){
   cat(use.streets,mes,"\n")
+  }
+  cat("Fit autocorrelation structure:",fit.spatstruct)
+  if(!fit.spatstruct){
+	  cat(" (f=",f,";T=",T,";Ku=",Ku,";Kv=",Kv,")\n",sep="");
   }
 
   cat("Account for local noise:",use.v,"\n")
@@ -3341,7 +3343,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,2]<-sd(u)
     sampled[num.simul+1,3:spacer]<-u[grid.stab]
     sampled[num.simul+1,spacer+1]<-mean(w)
-    sampled[num.simul+1,spacer+2]<-sd(u)
+    sampled[num.simul+1,spacer+2]<-sd(w)
     sampled[num.simul+1,(spacer+3):(2*spacer)]<-w[grid.stab]
     sampled[num.simul+1,(2*spacer)+1]<-LLHu
     sampled[num.simul+1,(2*spacer)+2]<-LLHyw;
