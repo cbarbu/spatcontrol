@@ -4,7 +4,7 @@
 # As this code is continually developped 
 # request for an updated version are welcome at corentin.barbu [gmail]
 # get necessary functions
-source("spatcontrol.R",local=TRUE)
+source("spatcontrol/spatcontrol.R",local=TRUE)
 
 #==================
 # Data preparation
