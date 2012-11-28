@@ -1,17 +1,21 @@
-source("spatcontrol.R",chdir=TRUE)
+source("spatcontrol/spatcontrol.R",chdir=TRUE)
 graphics.off()
 sampled<-get.sampled()
 traces(sampled[-1,])
-estimates<-posteriors(sampled[-1,]
+estimates<-posteriors(sampled[-1,-c("i")])
 
 cofs<-get.cofactors()
-traces(cofs[-1,])
-estimates<-c(estimates,posteriors(cofs[-1,]))
+if(!is.null(cofs)){
+	traces(cofs[-1,])
+	estimates<-c(estimates,group.posteriors(cofs[-1,]))
+}
 
 betas<-get.betas()
+if(!is.null(betas)){
 traces(betas[-1,])
-estimates<-c(estimates,posteriors(betas[-1,]))
-# tb<-summary.spatcontrol(estimates=estimates)
+estimates<-c(estimates,group.posteriors(betas[-1,]))
+}
+tb<-summary.spatcontrol(estimates=estimates)
 
 # estimate post-spraying
 dbFitted<-read.csv("dbFitted.csv")
@@ -29,6 +33,7 @@ cat("GMRFpino Model:",
 totalInfPostSpray,"houses infested post spraying")
 cat("Or",naivePostSpray/totalInfPostSpray,"times less\n")
 
+convergence<-cb.diag(betas)
 
 
 
