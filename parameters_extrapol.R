@@ -1,6 +1,19 @@
 ################################
 ### Parameters
 ################################
+#=======================
+# Starting values (kept all along if not fitted)
+# important for extrapol.spatautocorel()
+# these values be estimated using a 
+# representative sample 
+#=======================
+T <- 0.3 # 0.3119698
+f <- 9
+Ku<- 0.48
+Kv<- 169
+# startCof<-c(0.68,0.47,0.21,-1.14,-0.28)
+# names(startCof)<-c("CU","PE","oanimal","I.NO","P.NO")
+# meanBeta<-0.696
 
 #=======================
 # Priors and quantitative parameters of the model
@@ -31,14 +44,6 @@ abeta <- 1; ## (18,2) allow to have the mean at 0.9
 bbeta <- 1; ## (1,1) gives flat prior
 
 priorinspquality<- 1 # if insp not fitted quality of inspectors
-
-#=======================
-# Starting values (kept all along if not fitted)
-#=======================
-T <- 1.0 # 0.3119698
-f <- 20
-Ku<- 1
-Kv<- 1
 
 #=======================
 # How to sample? (technical parameters of the sampling)
