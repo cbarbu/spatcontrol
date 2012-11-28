@@ -6,3 +6,8 @@ betasamples.txt
 output.lst
 .Rhistory
 *.o
+cofactors.txt
+sampled.txt
+EndSampleImage.img
+convergence_tests.txt
+estimated.txt
