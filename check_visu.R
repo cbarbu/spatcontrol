@@ -2,12 +2,15 @@ source("spatcontrol.R",chdir=TRUE)
 graphics.off()
 sampled<-get.sampled()
 traces(sampled[-1,])
+estimates<-posteriors(sampled[-1,]
 
 cofs<-get.cofactors()
 traces(cofs[-1,])
+estimates<-c(estimates,posteriors(cofs[-1,]))
 
 betas<-get.betas()
 traces(betas[-1,])
+estimates<-c(estimates,posteriors(betas[-1,]))
 # tb<-summary.spatcontrol(estimates=estimates)
 
 # estimate post-spraying
