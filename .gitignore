@@ -12,3 +12,5 @@ cofactors.txt
 convergence_tests.txt
 estimated.txt
 sampled.txt
+dbFitted.csv
+Rprof.out

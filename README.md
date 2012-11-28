@@ -9,10 +9,25 @@ Simply source spatcontrol.R to use the spatial analysis functions:
 ```
 source("spatcontrol.R")
 ```
+It can ask for a bunch of R packages to be installed.
+
 In addition, substantial computation time can be saved when using large datasets by using the attached C code: 
 ```
 R CMD SHLIB spatcontrol.c
 ```
+
+More systematic use can be done by using the sec_launch.sh command:
+```
+chmod +x sec_launch.sh
+```
+Then you should use the example out of spatcontrol.c in a lower nivel than spatcontrol, calling it in the code (eg:mycode.R):
+``` 
+source("spatcontrol/spatcontrol.R,chdir=TRUE)
+``` 
+
+Then you can run a backed up simulation using:
+spatcontrol/sec_launch.sh mycode.R
+
 
 Main functionalities and examples:
 ----------------------------------

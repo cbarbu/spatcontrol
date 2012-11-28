@@ -62,18 +62,14 @@ set.seed(777) # to be able to reproduce the results
 # # No option yet to fit the intercept so this is probably not what you want to do
 # dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1 & db$observed==1),-which(names(db) %in% c("GroupNum","IdObserver","X","Y"))],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
 
-
 # Full
-dbFitted<-db
-
-dbFit<-extrapol.spatautocorel(db=dbFitted,nbiterations=-1,cofactors=c("CU","PE","oanimal","I.NO","P.NO"))
+dbFit<-extrapol.spatautocorel(db=db,nbiterations=-1,cofactors=c("CU","PE","oanimal","I.NO","P.NO"))
 # Nota: for a reasonable fit you should better use nbiterations=500000 or -1 
 # for autostopping
 
 samples<-trace.mcmc()
 estimates<-posteriors.mcmc(samples=samples,dbFit=dbFit)
 summary.spatcontrol(estimates=estimates)
-
 
 ##### visualizing maps
 par(mfrow=c(2,3))

@@ -2673,6 +2673,7 @@ fit.spatautocorel<-function(db=NULL,
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
   # uncommenting break() in manual_stop.R
+write.csv(db,"dbFitted.csv",row.names=FALSE)
 
   # source(pfile)
   source("parameters_extrapol.R") # mainly parameters priors
@@ -3299,7 +3300,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("mu:",mean(u),"sdu:",sd(u),"T:",T,"f:",f);
 
   # Same block weight in spatial component
-  if(use.streets){
+  if(use.streets && fit.spatstruct){
   kernSB<-kern(1,SBdist,f)
   kernAS<-kern(T,ASdist,f)
   kernASnoT<-kern(1,ASdist,f)
