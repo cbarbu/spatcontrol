@@ -2,7 +2,7 @@ library(spam);
 library(sp)
 library(msm)
 library("truncnorm")
-# library("PBSmapping")
+library("PBSmapping")
 library(testthat)
 library(Hmisc)
 library(plotrix)
@@ -11,13 +11,9 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
-importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 #===============================
 # General purpose functions
 #===============================
-count<-function(vect){
-	return(length(which(vect)))
-}
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
     # if possible to change the column to numeric do it
@@ -26,7 +22,7 @@ set_to<-function(x,init=c("NULL"),final=0){
     if(class(x) != 'data.frame')
         stop('x must be a data.frame')
     if(length(final)>1){
-        warning("final is of length >1, will o# nly use first item\n")
+        warning("final is of length >1, will only use first item\n")
     }
 
     isfacts <- sapply(x, is.factor)
@@ -61,7 +57,7 @@ removeCol <- function(Table,colNames){
 	return(Table[,names(Table)[-which(names(Table) %in% colNames)]])
 }
 
-## given input matrix A
+
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
@@ -93,216 +89,75 @@ resized<-function(A,nr=nrow(A),nc=ncol(A)){
     out <- head(out, n)
   out
 }
-
 # shorthand
 lsos <- function(..., n=10) {
   .ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n)
 }
-
 #-----------------
 # convert to utms
 #-----------------
-
-LL.to.our.utms<-function(coord,utmZone=NULL,addSouth=10000000){
-
-
+LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in this order
+	coord<-as.data.frame(coord)
+	names(coord)<-c("X","Y")
+	
 	# only try to convert not NAs
- 	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
- 	coordDefined<-coord[sel,] 
-	X<- Y <- rep(0,dim(coordDefined)[1])
- 
-	# auto detect utm zone if not set
-	if(is.null(utmZone)){
-		# set automaticamente to the utm zone corresponding 
-		# to the mean of X
-		m <- mean(coordDefined$lon);
-		if ((m <= -180) || (m > 180)) {
-			cat("utmZone missing and mean(lon) not in [-180;180]. Aborting.\n")
-			return(NULL)
-		}else{
-			utmZone <- ceiling((m + 180) / 6)
-			message("Automatically detected UTM zone",utmZone)
-		}
-	}
-	if(min(coordDefined$lat)<0){
-		correctif_south<-addSouth
-	}else{
-		correctif_south<-0
+	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
+	coordDefined<-coord[sel,] 
+
+	attributes(coordDefined)$projection<-"LL"
+
+	utm.coord<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
+	names(utm.coord)<-c("X","Y")
+	utm.coord[sel,]<-as.data.frame(convUL(coordDefined))
+
+	our.utms<-utm.coord*1000
+	if(max(utm.coord$Y,na.rm=TRUE)<0){
+	our.utms$Y<-our.utms$Y+10000000 # CAREFUL may not be needed with new versions of R
 	}
 
-	# conversion
-	out<-.C("multiple_ll_to_utm",
-	   lon=as.numeric(coordDefined$lon),
-	   lat=as.numeric(coordDefined$lat),
-	   ncoord=as.integer(length(X)), 
-	   X=as.numeric(X),
-	   Y=as.numeric(Y),
-	   utmZone=as.integer(utmZone),
-	   addSouth=as.numeric(correctif_south)
-	   )
-
- 	our.utms<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
- 	our.utms[sel,]<-cbind(out$X,out$Y)
- 	names(our.utms)<-c("X","Y")
- 	attributes(our.utms)$zone <- utmZone
-	if(min(coordDefined$lat)<0){
-		attributes(our.utms)$H <- "S"
-		attributes(our.utms)$addSouth <- addSouth
-	}else{
-		attributes(our.utms)$H <- "N"
-		attributes(our.utms)$addSouth <- 0
-	}
+	attributes(our.utms)<-attributes(utm.coord)
 
 	return(our.utms)
 }
-
-# LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in this order
-# 	coord<-as.data.frame(coord)
-# 	names(coord)<-c("X","Y")
-# 
-# 	# only try to convert not NAs
-# 	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
-# 	coordDefined<-coord[sel,] 
-# 
-# 	attributes(coordDefined)$projection<-"LL"
-# 
-# 	utm.coord<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
-# 	names(utm.coord)<-c("X","Y")
-# 	utm.coord[sel,]<-as.data.frame(convUL(coordDefined))
-# 
-# 	our.utms<-utm.coord*1000
-# 	if(max(utm.coord$Y,na.rm=TRUE)<0){
-# 	our.utms$Y<-our.utms$Y+10000000 # CAREFUL may not be needed with new versions of R
-# 	}
-# 
-# 	attributes(our.utms)<-attributes(utm.coord)
-# 
-# 	return(our.utms)
-# }
 # H may be "S" or "N" if UTMs in South or North hemisphere
-our.utms.to.LL<-function(our.utms,zone=NULL,H=NULL,addSouth=NULL){ # columns must be X and Y in this order
+our.utms.to.LL<-function(our.utms,zone=FALSE,H=FALSE){ # columns must be X and Y in this order
+	names(our.utms)<-c("X","Y")
 
-	# account for possible correction for south to be positive
-	HA<-attributes(our.utms)$H
-	if(is.null(HA) && is.null(H)){
-		warning("Missing H (\"S\" or \"N\") for our.utms.to.LL. Aborting.\n");
-		return(NULL)
-	}else if(is.null(HA) && ! is.null(H)){
-		H <- H
-	}else if(!is.null(HA) && is.null(H)){
-		H <- HA
-	}else if(!is.null(HA) &&! is.null(H)){
-		nbSouth<-sum(c(HA,H) %in% c("S","s"))
-		if(nbSouth !=0 && nbSouth != 2){
-			warning(paste("H in parameters of our.utms.to.LL (",H,"and in attributes of utms (",attributes(our.utms.to.LL)$H,") do not match. Keeping user specified one.",sep=""))
-			H<-H
-		}else{
-			H<-H
-		}
+	if(H=="S" || H=="s"){
+		our.utms$Y<-our.utms$Y-10000000# CAREFUL may not be needed with new versions of R
+	}else if(H!="N" && H!="n"){
+		stop("Missing H (\"S\" or \"N\") for our.utms.to.LL\n");
 	}
-
-	if(sum(H %in% c("S","s"))>0){
-		# set correctif_south
-		addSouthA<-attributes(our.utms)$addSouth
-		if(is.null(addSouth) && is.null(addSouthA)){
-			correctif_south<-10000000
-		}else if(is.null(addSouth) && !is.null(addSouthA)){
-			correctif_south<-addSouthA
-		}else if(!is.null(addSouth) && is.null(addSouthA)){
-			correctif_south<-addSouth
-		}else if(addSouth != addSouthA){
-			warning(paste("addSouth in parameters of our.utms.to.LL (",addSouth,"differs attribute of utms. Keeping user specified one.",sep=""))
-			correctif_south<-addSouth
-		}else{
-			correctif_south<-addSouth
-		}
-	}else{
-		correctif_south<-0
-	}
-
-	# zone setting
-	if(is.null(zone) && is.null(attributes(our.utms)$zone)){
-		warning("Missing zone in our.utms.to.LL. Aborting.\n")
-		return(NULL)
-	}else if(is.null(zone) && ! is.null(attributes(our.utms)$zone)){
-		utmZone<-attributes(our.utms)$zone
-	}else if(! is.null(zone) && is.null(attributes(our.utms)$zone)){
-		utmZone<-zone
-	}else if(zone != attributes(our.utms)$zone){
-		warning(paste("zone parameter (",zone,") of our.utms.to.LL doesn't match the 
-			      zone attribute of the utms (",attributes(our.utms)$zone,"). Keeping the one specified by user but be careful."))
-		utmZone<-zone
-	}else{
-		utmZone<-zone
-	}
+	our.utms$X<-our.utms$X/1000
+	our.utms$Y<-our.utms$Y/1000
 
 	# avoid NAs
 	sel<-which(!is.na(our.utms[,1]) & !is.na(our.utms[,1]))
-	defined<-our.utms[sel,]
-	defined$Y<-defined$Y-correctif_south
-	lat<-lon<-rep(0,dim(defined)[1])
+	our.utmsDefined<-our.utms[sel,] 
+
+	attributes(our.utmsDefined)$projection<-"UTM"
+	attributes(our.utmsDefined)$zone<-zone
 
 	NAvect<-rep(NA,dim(our.utms)[1])
-	latlong<-as.data.frame(cbind(NAvect,NAvect))
-	names(latlong)<-c("X","Y")
+	back.coord<-as.data.frame(cbind(NAvect,NAvect))
+	names(back.coord)<-c("X","Y")
+	back.coord[sel,]<-as.data.frame(convUL(our.utmsDefined))
+	attributes(back.coord)$projection<-"LL"
 
-	# calculate
-	out<- .C("multiple_utm_to_ll",
-			      X=as.numeric(defined$X),
-			      Y=as.numeric(defined$Y),
-			      ncoord=as.integer(dim(defined)[1]),
-			      lon=as.numeric(lon),
-			      lat=as.numeric(lat),
-			      utmZone=as.integer(utmZone),
-			      correctif = as.numeric(correctif_south)
-			      )
-	latlong[sel,]<-cbind(out$lon,out$lat)
-	attributes(latlong)$projection<-"LL"
-
-	return(latlong)
+	return(back.coord)
 }
-
-# # H may be "S" or "N" if UTMs in South or North hemisphere
-# our.utms.to.LL<-function(our.utms,zone=FALSE,H=FALSE){ # columns must be X and Y in this order
-# 	names(our.utms)<-c("X","Y")
-# 
-# 	if(H=="S" || H=="s"){
-# 		our.utms$Y<-our.utms$Y-10000000# CAREFUL may not be needed with new versions of R
-# 	}else if(H!="N" && H!="n"){
-# 		stop("Missing H (\"S\" or \"N\") for our.utms.to.LL\n");
-# 	}
-# 	our.utms$X<-our.utms$X/1000
-# 	our.utms$Y<-our.utms$Y/1000
-# 
-# 	# avoid NAs
-# 	sel<-which(!is.na(our.utms[,1]) & !is.na(our.utms[,1]))
-# 	our.utmsDefined<-our.utms[sel,] 
-# 
-# 	attributes(our.utmsDefined)$projection<-"UTM"
-# 	attributes(our.utmsDefined)$zone<-zone
-# 
-# 	NAvect<-rep(NA,dim(our.utms)[1])
-# 	back.coord<-as.data.frame(cbind(NAvect,NAvect))
-# 	names(back.coord)<-c("X","Y")
-# 	back.coord[sel,]<-as.data.frame(convUL(our.utmsDefined))
-# 	attributes(back.coord)$projection<-"LL"
-# 
-# 	return(back.coord)
-# }
 ## testing / Example
 # arequipa with NA
 latlongArequipa<-mat.or.vec(3,2)
 latlongArequipa[1,]<-c(-71.50535,-16.39649)
 latlongArequipa[2,]<-c(-71.50530,-16.39620)
 latlongArequipa[3,]<-c(NA,NA)
-latlongArequipa<-as.data.frame(latlongArequipa)
-names(latlongArequipa)<-c("lon","lat")
 utmArequipa<-mat.or.vec(3,2)
 utmArequipa[1,]<-c(232411.8,8185554)
 utmArequipa[2,]<-c(232416.8,8185587)
 utmArequipa[3,]<-c(NA,NA)
-suppressMessages(calcUtmArequipa<-LL.to.our.utms(latlongArequipa))
-suppressMessages(calcLLArequipa<-our.utms.to.LL(calcUtmArequipa))
+calcUtmArequipa<-LL.to.our.utms(latlongArequipa)
+calcLLArequipa<-our.utms.to.LL(calcUtmArequipa,zone=19,H="S")
 expect_true(all(calcUtmArequipa[-3,]-utmArequipa[-3,]<1))
 expect_true(all(calcLLArequipa[-3,]-latlongArequipa[-3,]<10e-6))
 
@@ -310,13 +165,11 @@ expect_true(all(calcLLArequipa[-3,]-latlongArequipa[-3,]<10e-6))
 latlongPhilly<-mat.or.vec(2,2)
 latlongPhilly[1,]<-c(-75.06446,40.03222)
 latlongPhilly[2,]<-c(-75.17687,39.98272)
-latlongPhilly<-as.data.frame(latlongPhilly)
-names(latlongPhilly)<-c("lon","lat")
 utmPhilly<-mat.or.vec(2,2)
 utmPhilly[1,]<-c(494500.2,4431335)
 utmPhilly[2,]<-c(484898.5,4425854)
-suppressMessages(calcUtmPhilly<- LL.to.our.utms(latlongPhilly))
-suppressMessages(calcLLPhilly<-our.utms.to.LL(calcUtmPhilly))
+calcUtmPhilly<- LL.to.our.utms(latlongPhilly)
+calcLLPhilly<-our.utms.to.LL(calcUtmPhilly,zone=18,H="N")
 expect_true(all(calcLLPhilly-latlongPhilly<10e-6))
 expect_true(all(calcUtmPhilly-utmPhilly<1))
 
@@ -355,6 +208,7 @@ apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	return(results);
 }
 
+importOk<-try(dyn.load("useC2.so"),silent=TRUE)
 if(class(importOk)!="try-error"){
 	random_spam_entries_by_row<-function(A){
 		# randomly exchange the *defined entries* of a spam matrix by rows
@@ -406,6 +260,8 @@ SpecificMultiply.spam<-function(f,mat,indexMat){
 	}
 }
 
+importOk<-try(dyn.load("filter_spam.so"),silent=TRUE)
+
 # change all entries in A bigger than maxtobesetnull to 0
 if(class(importOk)!="try-error"){
 filter.spam<-function(A,maxtobesetnull){
@@ -417,7 +273,7 @@ filter.spam<-function(A,maxtobesetnull){
 	return(as.spam(A));
 }
 }else{
-	cat("\nWARNING spatcontrol.so not available, will use pure R code, may be slower.\n")
+	cat("\nWARNING filter_spam.so not available, will use pure R code, may be slower.\n")
 	filter.spam<-function(A,maxtobesetnull){
 		A@entries[A@entries>maxtobesetnull]<- 0
 		return(A);
@@ -463,7 +319,7 @@ dmvnorm.canonical<-function(r,b,Q,logout=TRUE,cholQ=NULL,...){
 }
 
 dmvnorm.prec<-function(r,mu,Q,logout=TRUE,...){
-	# recycling chol and tweaking it (see help(chol)) could still save a lot of time
+	# recicling chol and tweaking it (see help(chol)) could still save a lot of time
 	cholQ <- chol.spam(Q,...);
 	# log.det<- -2*determinant(cholQ)$modulus;
 	# log.det<- determinant.spam(Q,Rstruct=cholQ)$modulus
@@ -999,7 +855,7 @@ get.med.position.axis<-function(distances){
 	axis(1,at=seq(1:length(left.lim)), lab=labels.axis)
 	return(med.position)
 }
-zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE,poi=NULL,poni=NULL){
+zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE){
   # generate the positiveness according to estimates
   # Necessary:
   # detection: quality of detection for each point
@@ -1062,29 +918,13 @@ zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NU
 	}
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
-	o.p<-0*y.p
-	if(!is.null(zNA)){
-		cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
-		o.p[!zNA]<-0
-	}else{
-		## opening
-		o.p[y.p>0]<-rbinom(count(y.p>0),1,poi)
-		o.p[y.p<=0]<-rbinom(count(y.p<=0),1,poni)
-		cat("mean o.p",mean(o.p),"poi:",poi,"poni:",poni,"\n")
-		zNA<-which(o.p==0)
-		## observation
-		# attribute points to observers
-
-		# to be done, for now set detection to 1
-		detection<-rep(1,length(detection))
-	}
+	cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
 	z.p <-generate_z(y.p,detection,zNA)
-
 	cat("mean z.p",mean(z.p[!is.na(z.p)]),"\n")
 
-	return(list(z=z.p,y=y.p,o=o.p,w=w.p,v=v.p,c=c.p,u=u.p))
+	return(list(z=z.p,y=y.p,w=w.p,v=v.p,c=c.p,u=u.p))
 }
-gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01,poni=NULL,poi=NULL){
+gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01){
   # simpler wrapper calling zgen
   # for map generations
 
@@ -1097,43 +937,24 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
   # kern: the kernel to use (expKernel,gaussianKernel, cauchyKernel or geometricKernel). If f and T have been estimated the kernel here should correspond to the one used to estimate them.
   # obs.qual: vector of the quality of the observers, default to 1 (all perfect). It can be set to a real in [0,1], applied to all points; a vector the same length than db, each then applied to its point; or be a vector with named values corresponding to the levels in db$IdObserver, then applied to these same Observers. In the last case, if observers do not have an estimate in obs.qual there value is fixed to the mean of obs.qual
 
-	nPoints<-dim(db)[1]
-	# get the Q precision matrix
-	cat("Generating the distance matrix...\n")
-	dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
-	diag(dist_mat)<- rep(0,dim(dist_mat)[1])
-	dbout<-db[,c("X","Y")]
+  nPoints<-dim(db)[1]
+  # get the Q precision matrix
+  cat("Generating the distance matrix...\n")
+  dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
+  diag(dist_mat)<- rep(0,dim(dist_mat)[1])
+  dbout<-db[,c("X","Y")]
 
-	# Missing information
-	if(randomizeNA){
-		cat("Missingness structure...\n")
-		if(!is.null(poi) || !is.null(poni)){
-			if(!is.null(poi) && !is.null(poni)){
-				pOpen<-NULL
-			}else if(!is.null(poi)){
-				pOpen <- poi
-			}else{
-				pOpen <- poni
-			}
-			cat("Opening rate:",pOpen,"\n")
-		}else{
-			cat("Opening independant from infestation")
-			pOpen<-sum(db$observed==1)/length(db$observed)
-		}
-		if(!is.null(pOpen)){
-			o.gen<-rbinom(dim(db)[1],1,pOpen)
-			zNA<-which(o.gen==0)
-		}else{
-			zNA<-NULL
-		}
-	}else{
-		cat("Keeping missingness\n")
-		zNA<-which(db$observed==0)
-	}
-  if(!is.null(zNA)){
-	  dbout$observed<-rep(0,dim(dbout)[1])
-	  dbout$observed[-zNA]<-1
+  # Missing information
+  if(randomizeNA){
+    cat("Generating missingness...\n")
+    nNA<-sum(db$observed==0)
+    zNA<-sample(nNA,1:nPoints)
+  }else{
+    cat("Keeping missingness\n")
+    zNA<-which(db$observed==0)
   }
+  dbout$observed<-rep(0,dim(dbout)[1])
+  dbout$observed[-zNA]<-1
 
   # spatial groupings
   if(!is.null(db$GroupNum)){
@@ -1198,8 +1019,7 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
 
   # generate spatial autocorrelation and final values
   cat("Generating autocorrelation...\n")
-  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp,poi=poi,poni=poni)
-  dbout$observed<-simul$o
+  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp)
   dbout$positive<-simul$z
   dbout$ygen<-simul$y
   dbout$wgen<-simul$w
@@ -1463,35 +1283,6 @@ gen_c.map<-function(nbfact,nbpoints,rates=rep(0.5,nbfact)){
 betafile<-"betasamples.txt"
 coffile<-"cofactors.txt"
 monitorfile<-"sampled.txt"
-check.equal.l.or.1<-function(name,vect,l){
-	lvect<-length(vect)
-
-	if(lvect!=l && lvect!=1){
-		warning("length(",name,")=",length(vect)," while l=",l)
-	}
-}
-
-sample.p.of.binom<-function(npos,nneg,prior.alpha,prior.beta){
-	l<-max(length(npos),length(nneg),length(prior.alpha),length(prior.beta))
-	check.equal.l.or.1("npos",npos,l)
-	check.equal.l.or.1("nneg",nneg,l)
-	check.equal.l.or.1("prior.alpha",prior.alpha,l)
-	check.equal.l.or.1("prior.beta",prior.beta,l)
-	
-	newp<-rbeta(l,prior.alpha+npos,prior.beta+nneg)
-	return(newp)
-}
-# # test:
-# {
-# Nrep<-1000
-# draws<-mat.or.vec(Nrep,2)
-# for( i in 1:Nrep){
-# 	draws[i,]<- sample.p.of.binom(c(9,1),c(1,9),alpha.pi,beta.pi)
-# }
-# # expect_true(abs(mean(draws)-0.9)<0.1)
-# # expect_true(sd(draws)<0.5)
-# }
-
 
 # adapt the standard deviation of the proposal
 adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,tailLength=20){
@@ -2074,7 +1865,7 @@ sample_f <- function(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NU
 	LLH <-LLHu+llhf;
 	lnr <- LLHproposal-LLH+hasting_term;
 
-	# cat("f:",f," LLH:",LLH,"(",LLHu,"+",llhf,") f prop:",f_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhfprop,") h_t:",hasting_term," lnr",lnr,sep="");
+	cat("f:",f," LLH:",LLH,"(",LLHu,"+",llhf,") f prop:",f_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhfprop,") h_t:",hasting_term," lnr",lnr,sep="");
 
 	if(lnr>=log(runif(1))) {
 		f <- f_prop;
@@ -2082,10 +1873,10 @@ sample_f <- function(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NU
 		cholQ<-cholQprop;
 		LLHu<-LLHuprop;
 		acceptf<<-c(acceptf,1);
-		# cat(" accept 1\n");
+		cat(" accept 1\n");
 	}else{
 		acceptf<<-c(acceptf,0);
-		# cat("accept 0\n");
+		cat("accept 0\n");
 	}
 	return(list(f=f,Q=Q,LLHu=LLHu,cholQ=cholQ));
 }
@@ -2112,7 +1903,7 @@ sample_T <- function(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NUL
   LLH <- 	       LLHu+llhT;
   lnr <- LLHproposal-LLH+hasting_term;
 
-  # cat("T:",T," LLH:",LLH,"(",LLHu,"+",llhT,") T prop:",T_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhTprop,") h_t:",hasting_term," lnr",lnr,sep="");
+  cat("T:",T," LLH:",LLH,"(",LLHu,"+",llhT,") T prop:",T_prop," LLHproposal:",LLHproposal,"(",LLHuprop,"+",llhTprop,") h_t:",hasting_term," lnr",lnr,sep="");
 
   if(lnr>=log(runif(1))) {
     T <- T_prop;
@@ -2120,10 +1911,10 @@ sample_T <- function(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=NULL,Dmat=NUL
     cholQ<-cholQprop;
     LLHu<-LLHuprop;
     acceptT<<-c(acceptT,1);
-    # cat(" accept 1\n");
+    cat(" accept 1\n");
   }else{
     acceptT<<-c(acceptT,0);
-    # cat("accept 0\n");
+    cat("accept 0\n");
   }
   return(list(T=T,Q=Q,LLHu=LLHu,cholQ=cholQ));
 }
@@ -2215,11 +2006,12 @@ sample_u <- function(dimension,Q,K,y,cholQ=NULL){
 # of one being the lower limit of the other and this limit being 0
 # this allow specifically to sample y, the "continuous reality" in the probit model
 # directly according to the data
+
 # to pick something according to the previous curve
 sample_composite_ptnorm_vect <- function(xvect,bivect){
 	# sample y given that it's density is a normalized sum of 
 	# dnorm(xvect,1,0,+Inf)*(1-beta)+dnorm(xvect,1,-Inf,0)
-	# xvect: probit predictor of y :y ~ N(xvect,1)
+	# xvect: probability of being 1 vs. 0
 	# bivect: probability of being observed as 1 vs. 0
 	l<-length(xvect);
 	# cat("l",l);
@@ -2275,47 +2067,6 @@ sample_y_direct <-function(w,zpos,zneg,zNA,bivect){
 
 	return(y);
 }
-sampleYNApino<-function(wNA,poi,poni){
-	LeftNormAreas<-pnorm(0,mean=wNA,sd=1)
-	A<-LeftNormAreas*(1-poni)
-	B<-(1-LeftNormAreas)*(1-poi)
-	area<-A+B
-	
-	pYpos<-B/area
-	pYpos[area==0]<- (1-LeftNormAreas)/area # limit if poi and poni converge at the same rate to 1
-
-	Draw<-runif(length(wNA))
-	ypos<-which(Draw<=pYpos)
-	yneg<-which(Draw>pYpos)
-
-	yNA<-mat.or.vec(length(wNA),1);
-	if(length(ypos)>0){
-		yNA[ypos]<-rtruncnorm(1,mean=wNA[ypos],sd=1,a=0,b=Inf);
-	}
-	if(length(yneg)>0){
-		yNA[yneg]<-rtruncnorm(1,mean=wNA[yneg],sd=1,a=-Inf,b=0)
-	}
-
-	return(yNA)
-}
-sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
-	y<-0*w
-	if(length(zpos)>0){
-		y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
-	}
-
-	if(length(zneg)>0){
-		y[zneg]<- sample_composite_ptnorm_vect(w[zneg],bivect[zneg]);
-	}
-
-	if(length(zNA)>0){
-		y[zNA] <- sampleYNApino(w[zNA],poi,poni)
-	}
-
-	return(y);
-}
-
-
 
 dmtnorm<-function(x,mu=0,std=1,shift=0,w1=1,w2=1,logout=F){
 	# x the value(s) to examin
@@ -2459,15 +2210,15 @@ sampleKvMHunifSigma<-function(Kv,v,logsdDraw){
 
 	lnr <- LLHproposal-LLH+hasting_term;
 
-	# cat("sigv:",sig," LLH:",LLH," sigv prop:",sigProp," LLHproposal:",LLHproposal," lnr",lnr,sep="");
+	cat("sigv:",sig," LLH:",LLH," sigv prop:",sigProp," LLHproposal:",LLHproposal," lnr",lnr,sep="");
 
 	if(lnr>=log(runif(1))) {
 		Kv <- 1/(sigProp^2);
 		acceptKv<<-c(acceptKv,1);
-		# cat(" accept 1\n");
+		cat(" accept 1\n");
 	}else{
 		acceptKv<<-c(acceptKv,0);
-		# cat("accept 0\n");
+		cat("accept 0\n");
 	}
 	return(list(Kv=Kv));
 }
@@ -2647,6 +2398,7 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
 }
 
 fit.spatautocorel<-function(db=NULL,
+			    cofactors=c(),
 			    pfile="parameters_extrapol.r",
 			    fit.spatstruct=TRUE,
 			    use.generated=FALSE,
@@ -2655,9 +2407,7 @@ fit.spatautocorel<-function(db=NULL,
 			    nbiterations=100,
 			    nocheck=FALSE,
 			    threshold=50,
-			    use.v=TRUE,
-			    cofactors=NULL,
-			    fit.OgivP=FALSE
+			    use.v=TRUE
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -2672,10 +2422,12 @@ fit.spatautocorel<-function(db=NULL,
   # nbiterations: nb of iterations of the MCMC chain if <0 the mcmc is automatically stopped when raftery and geweke diagnostic are satisfied (can take days)
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
-  # uncommenting break() in manual_stop.R
+  # uncommenting break() in manual.stop.r
 
   # source(pfile)
-  source("parameters_extrapol.R") # mainly parameters priors
+  source("parameters_extrapol.r")
+  
+  # check fondamental variables present
   if(is.null(db$positive)){
     cat("\nMissing \"positive\" in db. Aborting.\n")
     return(NULL)
@@ -2711,8 +2463,6 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(levels(as.factor(db$IdObserver))),")",sep="")
   }
   cat("Account for observers:",use.insp,mes,"\n") 
-  
-  cat("Fit p(Observed|Positive):",fit.OgivP,"\n") 
 
   # Non observed
   if(is.null(db$observed)){
@@ -3001,8 +2751,7 @@ if(use.cofactors){
 LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
 
 ## save starting values
-nbtraced=21;
-poi<-poni<-1-length(zNA)/dim(db)[1]
+nbtraced=19;
 if(fit.spatstruct){
 	sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 	sampled[1,1]<-T;
@@ -3024,9 +2773,7 @@ if(fit.spatstruct){
 	sampled[1,17]<-0
 	sampled[1,18]<-0
 	sampled[1,19]<-mean(beta);
-	sampled[1,20]<-poi;
-	sampled[1,21]<-poni;
-	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
+	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta")
 	
 }else{
 	grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -3119,26 +2866,14 @@ lastBurnIn<-0
 # set.seed(777)
 # cat("rand",rnorm(1));
 cat("Begin sampling...\n")
-openned<-db$observed==1
 while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("\n\n",num.simul,", out of:",nbiterations," ");
   # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
-    # y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
-    y<-sampleYpino(w,poi,poni,zpos,zneg,zNA,bivect);
+    y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
-
-    if(fit.OgivP){
-	    nInfOpen<-length(which(yprime & openned))
-	    nInfNotOpen<-length(which(yprime & ! openned))
-	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.pio,beta.pio)
-
-	    nNotInfOpen<-length(which(!yprime & openned))
-	    nNotInfNotOpen<-length(which(!yprime & ! openned))
-	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
-    }
 
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
@@ -3149,7 +2884,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
-	  # cat("Ku",Ku,"Kv",Kv,"\n");
+	  cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
 	  x <- fastsamplexuv(dimension,cholR,y-wnotr);
 	}
@@ -3162,7 +2897,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
 	  K[1]<-Ku;
-	  # cat("Ku",Ku,"\n");
+	  cat("Ku",Ku,"\n");
 	}
       }
     }else{ # no spatial component
@@ -3212,7 +2947,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   if(use.insp){
     beta <- samplebeta(zpos,zneg,inspector,yprime,abeta,bbeta);
     bivect <- as.vector(inspector %*% beta);
-    # cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
+    cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
   }
 
   if(lastAdaptProp<num.simul){
@@ -3309,7 +3044,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   meanSBshare<-mean(SBshares,na.rm=TRUE)
   meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
   sumSBshares<-sumSBshares+SBshares
-  # cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
+  cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
   }else{
   }
 
@@ -3334,8 +3069,6 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,17]<-meanSBshare
     sampled[num.simul+1,18]<-meanSBshareNoT
     sampled[num.simul+1,19]<-mean(beta);
-    sampled[num.simul+1,20]<-poi;
-    sampled[num.simul+1,21]<-poni;
   }else{
     sampled[num.simul+1,1]<-mean(u)
     sampled[num.simul+1,2]<-sd(u)
@@ -3414,7 +3147,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
     lastsaved<-num.simul+1
     ## manual stop
-    try(source("manual_stop.R",local=TRUE))
+    try(source("manual.stop.r",local=TRUE))
   }
   
   num.simul<-num.simul+1
@@ -3458,7 +3191,7 @@ attributes(db)$Kthin<-Kthin
 attributes(db)$freqsave<-freqsave
 attributes(db)$nbiterations<-nbiterations
 
-save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
+save(list=ls(),file="EndSampleImage.img") # allow to examin the environment later
 
 return(db)
 }
@@ -3467,9 +3200,6 @@ extrapol.spatautocorel<-function(...){
   return(fit.spatautocorel(...,fit.spatstruct=FALSE))
 }
 
-#--------------------------------
-# Chains analysis/visualization
-#--------------------------------
 cut.burnIn<-function(dbFit=NULL,samplesDB){
   if(!is.null(dbFit) && length(samplesDB)>0){
     # check that sampled not already chopped 
@@ -3517,11 +3247,6 @@ get.cofactors<-function(samples=NULL,file=coffile,dbFit=NULL){
 
   return(c.vals)
 }
-get.field<-function(file){
-      noms<-read.table(file,nrow=1,header=FALSE)
-      betas<-matrix(scan(file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE)
-}
-
 get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
   if(is.null(samples$betas)){
     if(file.exists(file)){
@@ -3542,29 +3267,20 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 
   return(betas)
 }
-traces<-function(db,nl=3,nc=4,true.vals=NULL){
+traces<-function(db,nl=3,nc=4){
   db<-as.data.frame(db)
-  pch <- "."
-  if(dim(db)[1]>100){
+  if(dim(db)[2]>100){
     type="p"
+    pch<-"."
   }else{
     type="l"
   }
   for(num in 1:length(names(db))){
-	  if(num %% (nl*nc) ==1){ 
-		  dev.new()
-		  par(mfrow=c(nl,nc))
-	  }
-	  name<-names(db)[num]
-	  if(name %in% names(true.vals)){
-		  ylim<-range(true.vals[[name]],db[[num]])
-	  }else{
-		  ylim<-range(db[[num]])
-	  }
-	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
-	  if(name %in% names(true.vals)){
-		  abline(h=true.vals[[name]],col="green")
-	  }
+    if(num %% (nl*nc) ==1){ 
+      dev.new()
+      par(mfrow=c(nl,nc))
+    }
+    plot(db[[num]],main=names(db)[num],pch=pch,type=type)
   }
 }
 
@@ -3636,10 +3352,7 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
       name<-paste(name," thinned x",Nthin,sep="")
     }
 
-    if(class(densfit)!= "try-error"){
     vals<-predict(densfit,estimate)
-    }else{
-	    valse<-NULL
     if(visu){
       plot(densfit,xlab=name)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
@@ -3665,7 +3378,6 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 	}
 	legend(loc,leg.text,col=leg.col,lty=1)
       }
-    }
     }
   }else{
     densfit<-NULL
@@ -3720,23 +3432,6 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
     }
   }
   return(invisible(estimates))
-}
-
-posteriors<-function(db,nl=3,nc=4,true.vals=NULL){
-	db<-as.data.frame(db)
-	for(num in 1:dim(db)[2]){
-		if(num %% (nl*nc) ==1){ 
-			dev.new()
-			par(mfrow=c(nl,nc))
-		}
-		name<-names(db)[num]
-		if(name %in% names(true.vals)){
-			true.val<-true.vals[[name]]
-		}else{
-			true.val<-NULL
-		}
-		get.estimate(db[,num],name=name,true.val=true.val)
-	}
 }
 
 posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){

@@ -23,5 +23,3 @@ samples<-trace.mcmc()
 estimates<-posteriors.mcmc(samples=samples,dbFit=dbFit)
 summary.spatcontrol(estimates=estimates)
 
-
-
