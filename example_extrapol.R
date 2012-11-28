@@ -4,7 +4,7 @@
 # As this code is continually developped 
 # request for an updated version are welcome at corentin.barbu [gmail]
 # get necessary functions
-source("spatcontrol/spatcontrol.R",local=TRUE)
+source("spatcontrol/spatcontrol.R",local=TRUE,chdir=TRUE)
 
 #==================
 # Data preparation
@@ -61,6 +61,9 @@ set.seed(777) # to be able to reproduce the results
 # # fit only the cofactors, with a random error term
 # # No option yet to fit the intercept so this is probably not what you want to do
 # dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1 & db$observed==1),-which(names(db) %in% c("GroupNum","IdObserver","X","Y"))],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
+
+# get parameters for sampling 
+source("parameters_extrapol.R")
 
 # Full
 dbFit<-extrapol.spatautocorel(db=db,nbiterations=-1,cofactors=c("CU","PE","oanimal","I.NO","P.NO"))

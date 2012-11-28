@@ -62,6 +62,8 @@ set.seed(777) # to be able to reproduce the results
 # # No option yet to fit the intercept so this is probably not what you want to do
 # dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1 & db$observed==1),-which(names(db) %in% c("GroupNum","IdObserver","X","Y"))],cofactors=c("CU","PE","oanimal","I.NO","P.NO"),nbiterations=-1,threshold=50,nocheck=FALSE,kern="exp",use.v=TRUE)
 
+# get parameters for sampling 
+source("parameters_extrapol.R")
 
 # Full
 
