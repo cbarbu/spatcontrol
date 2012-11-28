@@ -15,6 +15,9 @@ importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 #===============================
 # General purpose functions
 #===============================
+count<-function(vect){
+	return(length(which(vect)))
+}
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
     # if possible to change the column to numeric do it
@@ -996,7 +999,7 @@ get.med.position.axis<-function(distances){
 	axis(1,at=seq(1:length(left.lim)), lab=labels.axis)
 	return(med.position)
 }
-zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE){
+zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE,poi=NULL,poni=NULL){
   # generate the positiveness according to estimates
   # Necessary:
   # detection: quality of detection for each point
@@ -1059,13 +1062,29 @@ zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NU
 	}
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
-	cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
+	o.p<-0*y.p
+	if(!is.null(zNA)){
+		cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
+		o.p[!zNA]<-0
+	}else{
+		## opening
+		o.p[y.p>0]<-rbinom(count(y.p>0),1,poi)
+		o.p[y.p<=0]<-rbinom(count(y.p<=0),1,poni)
+		cat("mean o.p",mean(o.p),"poi:",poi,"poni:",poni,"\n")
+		zNA<-which(o.p==0)
+		## observation
+		# attribute points to observers
+
+		# to be done, for now set detection to 1
+		detection<-rep(1,length(detection))
+	}
 	z.p <-generate_z(y.p,detection,zNA)
+
 	cat("mean z.p",mean(z.p[!is.na(z.p)]),"\n")
 
-	return(list(z=z.p,y=y.p,w=w.p,v=v.p,c=c.p,u=u.p))
+	return(list(z=z.p,y=y.p,o=o.p,w=w.p,v=v.p,c=c.p,u=u.p))
 }
-gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01){
+gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=NULL,randomizeNA=FALSE,threshold=50,epsilon=0.01,poni=NULL,poi=NULL){
   # simpler wrapper calling zgen
   # for map generations
 
@@ -1078,24 +1097,43 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
   # kern: the kernel to use (expKernel,gaussianKernel, cauchyKernel or geometricKernel). If f and T have been estimated the kernel here should correspond to the one used to estimate them.
   # obs.qual: vector of the quality of the observers, default to 1 (all perfect). It can be set to a real in [0,1], applied to all points; a vector the same length than db, each then applied to its point; or be a vector with named values corresponding to the levels in db$IdObserver, then applied to these same Observers. In the last case, if observers do not have an estimate in obs.qual there value is fixed to the mean of obs.qual
 
-  nPoints<-dim(db)[1]
-  # get the Q precision matrix
-  cat("Generating the distance matrix...\n")
-  dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
-  diag(dist_mat)<- rep(0,dim(dist_mat)[1])
-  dbout<-db[,c("X","Y")]
+	nPoints<-dim(db)[1]
+	# get the Q precision matrix
+	cat("Generating the distance matrix...\n")
+	dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
+	diag(dist_mat)<- rep(0,dim(dist_mat)[1])
+	dbout<-db[,c("X","Y")]
 
-  # Missing information
-  if(randomizeNA){
-    cat("Generating missingness...\n")
-    nNA<-sum(db$observed==0)
-    zNA<-sample(nNA,1:nPoints)
-  }else{
-    cat("Keeping missingness\n")
-    zNA<-which(db$observed==0)
+	# Missing information
+	if(randomizeNA){
+		cat("Missingness structure...\n")
+		if(!is.null(poi) || !is.null(poni)){
+			if(!is.null(poi) && !is.null(poni)){
+				pOpen<-NULL
+			}else if(!is.null(poi)){
+				pOpen <- poi
+			}else{
+				pOpen <- poni
+			}
+			cat("Opening rate:",pOpen,"\n")
+		}else{
+			cat("Opening independant from infestation")
+			pOpen<-sum(db$observed==1)/length(db$observed)
+		}
+		if(!is.null(pOpen)){
+			o.gen<-rbinom(dim(db)[1],1,pOpen)
+			zNA<-which(o.gen==0)
+		}else{
+			zNA<-NULL
+		}
+	}else{
+		cat("Keeping missingness\n")
+		zNA<-which(db$observed==0)
+	}
+  if(!is.null(zNA)){
+	  dbout$observed<-rep(0,dim(dbout)[1])
+	  dbout$observed[-zNA]<-1
   }
-  dbout$observed<-rep(0,dim(dbout)[1])
-  dbout$observed[-zNA]<-1
 
   # spatial groupings
   if(!is.null(db$GroupNum)){
@@ -1160,7 +1198,8 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
 
   # generate spatial autocorrelation and final values
   cat("Generating autocorrelation...\n")
-  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp)
+  simul<-zgen(obs.vect,zNA,Q=Q,Kv=Kv,Ku=Ku,mu=mu,c.comp=c.comp,poi=poi,poni=poni)
+  dbout$observed<-simul$o
   dbout$positive<-simul$z
   dbout$ygen<-simul$y
   dbout$wgen<-simul$w
@@ -1424,6 +1463,35 @@ gen_c.map<-function(nbfact,nbpoints,rates=rep(0.5,nbfact)){
 betafile<-"betasamples.txt"
 coffile<-"cofactors.txt"
 monitorfile<-"sampled.txt"
+check.equal.l.or.1<-function(name,vect,l){
+	lvect<-length(vect)
+
+	if(lvect!=l && lvect!=1){
+		warning("length(",name,")=",length(vect)," while l=",l)
+	}
+}
+
+sample.p.of.binom<-function(npos,nneg,prior.alpha,prior.beta){
+	l<-max(length(npos),length(nneg),length(prior.alpha),length(prior.beta))
+	check.equal.l.or.1("npos",npos,l)
+	check.equal.l.or.1("nneg",nneg,l)
+	check.equal.l.or.1("prior.alpha",prior.alpha,l)
+	check.equal.l.or.1("prior.beta",prior.beta,l)
+	
+	newp<-rbeta(l,prior.alpha+npos,prior.beta+nneg)
+	return(newp)
+}
+# # test:
+# {
+# Nrep<-1000
+# draws<-mat.or.vec(Nrep,2)
+# for( i in 1:Nrep){
+# 	draws[i,]<- sample.p.of.binom(c(9,1),c(1,9),alpha.pi,beta.pi)
+# }
+# # expect_true(abs(mean(draws)-0.9)<0.1)
+# # expect_true(sd(draws)<0.5)
+# }
+
 
 # adapt the standard deviation of the proposal
 adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,tailLength=20){
@@ -2147,12 +2215,11 @@ sample_u <- function(dimension,Q,K,y,cholQ=NULL){
 # of one being the lower limit of the other and this limit being 0
 # this allow specifically to sample y, the "continuous reality" in the probit model
 # directly according to the data
-
 # to pick something according to the previous curve
 sample_composite_ptnorm_vect <- function(xvect,bivect){
 	# sample y given that it's density is a normalized sum of 
 	# dnorm(xvect,1,0,+Inf)*(1-beta)+dnorm(xvect,1,-Inf,0)
-	# xvect: probability of being 1 vs. 0
+	# xvect: probit predictor of y :y ~ N(xvect,1)
 	# bivect: probability of being observed as 1 vs. 0
 	l<-length(xvect);
 	# cat("l",l);
@@ -2208,6 +2275,47 @@ sample_y_direct <-function(w,zpos,zneg,zNA,bivect){
 
 	return(y);
 }
+sampleYNApino<-function(wNA,poi,poni){
+	LeftNormAreas<-pnorm(0,mean=wNA,sd=1)
+	A<-LeftNormAreas*(1-poni)
+	B<-(1-LeftNormAreas)*(1-poi)
+	area<-A+B
+	
+	pYpos<-B/area
+	pYpos[area==0]<- (1-LeftNormAreas)/area # limit if poi and poni converge at the same rate to 1
+
+	Draw<-runif(length(wNA))
+	ypos<-which(Draw<=pYpos)
+	yneg<-which(Draw>pYpos)
+
+	yNA<-mat.or.vec(length(wNA),1);
+	if(length(ypos)>0){
+		yNA[ypos]<-rtruncnorm(1,mean=wNA[ypos],sd=1,a=0,b=Inf);
+	}
+	if(length(yneg)>0){
+		yNA[yneg]<-rtruncnorm(1,mean=wNA[yneg],sd=1,a=-Inf,b=0)
+	}
+
+	return(yNA)
+}
+sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+	y<-0*w
+	if(length(zpos)>0){
+		y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
+	}
+
+	if(length(zneg)>0){
+		y[zneg]<- sample_composite_ptnorm_vect(w[zneg],bivect[zneg]);
+	}
+
+	if(length(zNA)>0){
+		y[zNA] <- sampleYNApino(w[zNA],poi,poni)
+	}
+
+	return(y);
+}
+
+
 
 dmtnorm<-function(x,mu=0,std=1,shift=0,w1=1,w2=1,logout=F){
 	# x the value(s) to examin
@@ -2539,7 +2647,6 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
 }
 
 fit.spatautocorel<-function(db=NULL,
-			    cofactors=c(),
 			    pfile="parameters_extrapol.r",
 			    fit.spatstruct=TRUE,
 			    use.generated=FALSE,
@@ -2548,7 +2655,9 @@ fit.spatautocorel<-function(db=NULL,
 			    nbiterations=100,
 			    nocheck=FALSE,
 			    threshold=50,
-			    use.v=TRUE
+			    use.v=TRUE,
+			    cofactors=NULL,
+			    fit.OgivP=FALSE
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -2602,6 +2711,8 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(levels(as.factor(db$IdObserver))),")",sep="")
   }
   cat("Account for observers:",use.insp,mes,"\n") 
+  
+  cat("Fit p(Observed|Positive):",fit.OgivP,"\n") 
 
   # Non observed
   if(is.null(db$observed)){
@@ -2892,7 +3003,8 @@ if(use.cofactors){
 LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
 
 ## save starting values
-nbtraced=19;
+nbtraced=21;
+poi<-poni<-1-length(zNA)/dim(db)[1]
 if(fit.spatstruct){
 	sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 	sampled[1,1]<-T;
@@ -2914,7 +3026,9 @@ if(fit.spatstruct){
 	sampled[1,17]<-0
 	sampled[1,18]<-0
 	sampled[1,19]<-mean(beta);
-	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta")
+	sampled[1,20]<-poi;
+	sampled[1,21]<-poni;
+	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
 	
 }else{
 	grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -3007,14 +3121,26 @@ lastBurnIn<-0
 # set.seed(777)
 # cat("rand",rnorm(1));
 cat("Begin sampling...\n")
+openned<-db$observed==1
 while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("\n\n",num.simul,", out of:",nbiterations," ");
   # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
-    y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
+    # y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
+    y<-sampleYpino(w,poi,poni,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
+
+    if(fit.OgivP){
+	    nInfOpen<-length(which(yprime & openned))
+	    nInfNotOpen<-length(which(yprime & ! openned))
+	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.pio,beta.pio)
+
+	    nNotInfOpen<-length(which(!yprime & openned))
+	    nNotInfNotOpen<-length(which(!yprime & ! openned))
+	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+    }
 
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
@@ -3210,6 +3336,8 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,17]<-meanSBshare
     sampled[num.simul+1,18]<-meanSBshareNoT
     sampled[num.simul+1,19]<-mean(beta);
+    sampled[num.simul+1,20]<-poi;
+    sampled[num.simul+1,21]<-poni;
   }else{
     sampled[num.simul+1,1]<-mean(u)
     sampled[num.simul+1,2]<-sd(u)
@@ -3391,6 +3519,11 @@ get.cofactors<-function(samples=NULL,file=coffile,dbFit=NULL){
 
   return(c.vals)
 }
+get.field<-function(file){
+      noms<-read.table(file,nrow=1,header=FALSE)
+      betas<-matrix(scan(file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE)
+}
+
 get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
   if(is.null(samples$betas)){
     if(file.exists(file)){
@@ -3411,7 +3544,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 
   return(betas)
 }
-traces<-function(db,nl=3,nc=4){
+traces<-function(db,nl=3,nc=4,true.vals=NULL){
   db<-as.data.frame(db)
   pch <- "."
   if(dim(db)[1]>100){
@@ -3420,11 +3553,20 @@ traces<-function(db,nl=3,nc=4){
     type="l"
   }
   for(num in 1:length(names(db))){
-    if(num %% (nl*nc) ==1){ 
-      dev.new()
-      par(mfrow=c(nl,nc))
-    }
-    plot(db[[num]],main=names(db)[num],pch=pch,type=type)
+	  if(num %% (nl*nc) ==1){ 
+		  dev.new()
+		  par(mfrow=c(nl,nc))
+	  }
+	  name<-names(db)[num]
+	  if(name %in% names(true.vals)){
+		  ylim<-range(true.vals[[name]],db[[num]])
+	  }else{
+		  ylim<-range(db[[num]])
+	  }
+	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
+	  if(name %in% names(true.vals)){
+		  abline(h=true.vals[[name]],col="green")
+	  }
   }
 }
 
@@ -3496,7 +3638,10 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
       name<-paste(name," thinned x",Nthin,sep="")
     }
 
+    if(class(densfit)!= "try-error"){
     vals<-predict(densfit,estimate)
+    }else{
+	    valse<-NULL
     if(visu){
       plot(densfit,xlab=name)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
@@ -3522,6 +3667,7 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 	}
 	legend(loc,leg.text,col=leg.col,lty=1)
       }
+    }
     }
   }else{
     densfit<-NULL
@@ -3576,6 +3722,23 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
     }
   }
   return(invisible(estimates))
+}
+
+posteriors<-function(db,nl=3,nc=4,true.vals=NULL){
+	db<-as.data.frame(db)
+	for(num in 1:dim(db)[2]){
+		if(num %% (nl*nc) ==1){ 
+			dev.new()
+			par(mfrow=c(nl,nc))
+		}
+		name<-names(db)[num]
+		if(name %in% names(true.vals)){
+			true.val<-true.vals[[name]]
+		}else{
+			true.val<-NULL
+		}
+		get.estimate(db[,num],name=name,true.val=true.val)
+	}
 }
 
 posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){
