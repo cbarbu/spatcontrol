@@ -1323,6 +1323,35 @@ gen_c.map<-function(nbfact,nbpoints,rates=rep(0.5,nbfact)){
 betafile<-"betasamples.txt"
 coffile<-"cofactors.txt"
 monitorfile<-"sampled.txt"
+check.equal.l.or.1<-function(name,vect,l){
+	lvect<-length(vect)
+
+	if(lvect!=l && lvect!=1){
+		warning("length(",name,")=",length(vect)," while l=",l)
+	}
+}
+
+sample.p.of.binom<-function(npos,nneg,prior.alpha,prior.beta){
+	l<-max(length(npos),length(nneg),length(prior.alpha),length(prior.beta))
+	check.equal.l.or.1("npos",npos,l)
+	check.equal.l.or.1("nneg",nneg,l)
+	check.equal.l.or.1("prior.alpha",prior.alpha,l)
+	check.equal.l.or.1("prior.beta",prior.beta,l)
+	
+	newp<-rbeta(l,prior.alpha+npos,prior.beta+nneg)
+	return(newp)
+}
+# # test:
+# {
+# Nrep<-1000
+# draws<-mat.or.vec(Nrep,2)
+# for( i in 1:Nrep){
+# 	draws[i,]<- sample.p.of.binom(c(9,1),c(1,9),alpha.pi,beta.pi)
+# }
+# # expect_true(abs(mean(draws)-0.9)<0.1)
+# # expect_true(sd(draws)<0.5)
+# }
+
 
 # adapt the standard deviation of the proposal
 adaptSDProp <- function(sdprop, accepts, lowAcceptRate=0.15, highAcceptRate=0.4,tailLength=20){
@@ -2106,6 +2135,47 @@ sample_y_direct <-function(w,zpos,zneg,zNA,bivect){
 
 	return(y);
 }
+sampleYNApino<-function(wNA,poi,poni){
+	LeftNormAreas<-pnorm(0,mean=wNA,sd=1)
+	A<-LeftNormAreas*(1-poni)
+	B<-(1-LeftNormAreas)*(1-poi)
+	area<-A+B
+	
+	pYpos<-B/area
+	pYpos[area==0]<- (1-LeftNormAreas)/area # limit if poi and poni converge at the same rate to 1
+
+	Draw<-runif(length(wNA))
+	ypos<-which(Draw<=pYpos)
+	yneg<-which(Draw>pYpos)
+
+	yNA<-mat.or.vec(length(wNA),1);
+	if(length(ypos)>0){
+		yNA[ypos]<-rtruncnorm(1,mean=wNA[ypos],sd=1,a=0,b=Inf);
+	}
+	if(length(yneg)>0){
+		yNA[yneg]<-rtruncnorm(1,mean=wNA[yneg],sd=1,a=-Inf,b=0)
+	}
+
+	return(yNA)
+}
+sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+	y<-0*w
+	if(length(zpos)>0){
+		y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
+	}
+
+	if(length(zneg)>0){
+		y[zneg]<- sample_composite_ptnorm_vect(w[zneg],bivect[zneg]);
+	}
+
+	if(length(zNA)>0){
+		y[zNA] <- sampleYNApino(w[zNA],poi,poni)
+	}
+
+	return(y);
+}
+
+
 
 dmtnorm<-function(x,mu=0,std=1,shift=0,w1=1,w2=1,logout=F){
 	# x the value(s) to examin
@@ -2437,7 +2507,6 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
 }
 
 fit.spatautocorel<-function(db=NULL,
-			    cofactors=c(),
 			    pfile="parameters_extrapol.r",
 			    fit.spatstruct=TRUE,
 			    use.generated=FALSE,
@@ -2446,7 +2515,9 @@ fit.spatautocorel<-function(db=NULL,
 			    nbiterations=100,
 			    nocheck=FALSE,
 			    threshold=50,
-			    use.v=TRUE
+			    use.v=TRUE,
+			    cofactors=NULL,
+			    fit.OgivP=FALSE
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -2500,6 +2571,8 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(levels(as.factor(db$IdObserver))),")",sep="")
   }
   cat("Account for observers:",use.insp,mes,"\n") 
+  
+  cat("Fit p(Observed|Positive):",fit.OgivP,"\n") 
 
   # Non observed
   if(is.null(db$observed)){
@@ -2788,7 +2861,8 @@ if(use.cofactors){
 LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
 
 ## save starting values
-nbtraced=19;
+nbtraced=21;
+poi<-poni<-1-length(zNA)/dim(db)[1]
 if(fit.spatstruct){
 	sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 	sampled[1,1]<-T;
@@ -2810,7 +2884,9 @@ if(fit.spatstruct){
 	sampled[1,17]<-0
 	sampled[1,18]<-0
 	sampled[1,19]<-mean(beta);
-	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta")
+	sampled[1,20]<-poi;
+	sampled[1,21]<-poni;
+	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
 	
 }else{
 	grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -2903,14 +2979,26 @@ lastBurnIn<-0
 # set.seed(777)
 # cat("rand",rnorm(1));
 cat("Begin sampling...\n")
+openned<-db$observed==1
 while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("\n\n",num.simul,", out of:",nbiterations," ");
   # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
-    y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
+    # y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
+    y<-sampleYpino(w,poi,poni,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
+
+    if(fit.OgivP){
+	    nInfOpen<-length(which(yprime & openned))
+	    nInfNotOpen<-length(which(yprime & ! openned))
+	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.pio,beta.pio)
+
+	    nNotInfOpen<-length(which(!yprime & openned))
+	    nNotInfNotOpen<-length(which(!yprime & ! openned))
+	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+    }
 
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
@@ -3106,6 +3194,8 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,17]<-meanSBshare
     sampled[num.simul+1,18]<-meanSBshareNoT
     sampled[num.simul+1,19]<-mean(beta);
+    sampled[num.simul+1,20]<-poi;
+    sampled[num.simul+1,21]<-poni;
   }else{
     sampled[num.simul+1,1]<-mean(u)
     sampled[num.simul+1,2]<-sd(u)
@@ -3287,6 +3377,11 @@ get.cofactors<-function(samples=NULL,file=coffile,dbFit=NULL){
 
   return(c.vals)
 }
+get.field<-function(file){
+      noms<-read.table(file,nrow=1,header=FALSE)
+      betas<-matrix(scan(file=file,sep="\t"),ncol=dim(noms)[2],byrow=TRUE)
+}
+
 get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
   if(is.null(samples$betas)){
     if(file.exists(file)){
@@ -3401,7 +3496,10 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
       name<-paste(name," thinned x",Nthin,sep="")
     }
 
+    if(class(densfit)!= "try-error"){
     vals<-predict(densfit,estimate)
+    }else{
+	    valse<-NULL
     if(visu){
       plot(densfit,xlab=name)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
@@ -3427,6 +3525,7 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 	}
 	legend(loc,leg.text,col=leg.col,lty=1)
       }
+    }
     }
   }else{
     densfit<-NULL
@@ -3481,6 +3580,23 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
     }
   }
   return(invisible(estimates))
+}
+
+posteriors<-function(db,nl=3,nc=4,true.vals=NULL){
+	db<-as.data.frame(db)
+	for(num in 1:dim(db)[2]){
+		if(num %% (nl*nc) ==1){ 
+			dev.new()
+			par(mfrow=c(nl,nc))
+		}
+		name<-names(db)[num]
+		if(name %in% names(true.vals)){
+			true.val<-true.vals[[name]]
+		}else{
+			true.val<-NULL
+		}
+		get.estimate(db[,num],name=name,true.val=true.val)
+	}
 }
 
 posteriors.mcmc<-function(samples=NULL,dbFit=NULL,visu=TRUE){
