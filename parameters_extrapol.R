@@ -11,6 +11,7 @@ T <- 0.3 # 0.3119698
 f <- 9
 Ku<- 0.48
 Kv<- 169
+mu <- -1
 # startCof<-c(0.68,0.47,0.21,-1.14,-0.28)
 # names(startCof)<-c("CU","PE","oanimal","I.NO","P.NO")
 # meanBeta<-0.696
