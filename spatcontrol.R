@@ -11,6 +11,7 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
+importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 #===============================
 # General purpose functions
 #===============================
@@ -99,452 +100,206 @@ lsos <- function(..., n=10) {
 # convert to utms
 #-----------------
 
-# copy from PBSmapping given that so bad to install
-.validateData <- function(data, className,
-			                            requiredCols = NULL, requiredAttr = NULL,
-						                              noFactorCols = NULL, noNACols = NULL, keyCols = NULL,
-									                                numericCols = NULL)
-	# An element of noNACols and keyCols will only be used if it exists in the
-	# data.  To ensure it exists in the data, make it a requiredCol.
-{
-	  # convert matrix to data frame
-	  if (is.matrix(data)) {
-		      data <- .mat2df(data);
-  }
+LL.to.our.utms<-function(coord,utmZone=NULL,addSouth=10000000){
 
-  if (is.data.frame(data) && (nrow(data) > 0)) {
-	      # validate optional class name
-	      if (!is.null(className) && (class(data)[1] != "data.frame")) {
-		            if (class(data)[1] != className) {
-				            return(paste("Unexpected class (", class(data)[1], ").\n", sep=""));
-        }
-      }
-
-      # ensure all the required columns exist in the PolySet
-      if (!is.null(requiredCols) &&
-	          !all(is.element(requiredCols, names(data)))) {
-	            return(paste("One or more of the required columns is missing.\n",
-				       "Required columns: ", paste(requiredCols, collapse = ", "), ".\n", sep=""));
-          }
-
-          # ensure all the required attributes exists in the PolySet
-          if (!is.null(requiredAttr) &&
-	              !all(is.element(requiredAttr, names(attributes(data))))) {
-		        return(paste("One or more of the required attributes is missing.\n",
-				           "Required attributes: ", paste(requiredAttr, collapse = ", "), ".\n", sep=""));
-	      }
-
-          # check for NAs
-          presentCols <- intersect(noNACols, names(data));
-	      if (length(presentCols) > 0) {
-		            # build an expression
-		            exprStr <- paste(paste("any(is.na(data$", presentCols, "))", sep=""), collapse=" || ");
-	        if (eval(parse(text=exprStr))) {
-			        return(paste("One or more columns (where NAs are not allowed) contains NAs.\n",
-					             "Columns that cannot contain NAs: ", paste(presentCols, collapse = ", "),
-						             ".\n", sep=""));
-		      }
-		    }
-
-	      # check for factors
-	      presentCols <- intersect(noFactorCols, names(data));
-	          if (length(presentCols) > 0) {
-			        # build an expression
-			        exprStr <- paste(paste("is.factor(data$", presentCols, ")", sep=""), collapse=" || ");
-	            if (eval(parse(text=exprStr))) {
-			            return(paste("One or more columns contains factors where they are not allowed.\n",
-						         "Columns that cannot contain factors: ", paste(presentCols, collapse = ", "),
-							         ".\n", sep=""));
-		          }
-		        }
-
-	          # check for uniqueness of the keys
-	          presentCols <- intersect(keyCols, names(data));
-		      if (length(presentCols) > 0) {
-			            if (length(presentCols) == 1) {
-					            keys <- data[[presentCols]];
-		        } else if ((length(presentCols) == 2)
-				                    && ((length(intersect(presentCols, c("PID","SID","POS","EID"))) == 2)
-							                     || (all(is.integer(data[[presentCols[1]]]))
-										                          && all(is.integer(data[[presentCols[2]]]))))) {
-				        # additional tests above to "ensure" the two columns contain integers
-				        keys <- .createIDs(data, cols=presentCols);
-			      } else {
-				              # paste the columns together
-				              exprStr <- paste("paste(",
-							                          paste(paste("data$", presentCols, sep=""), collapse=", "),");", sep="");
-			              keys <- eval(parse(text=exprStr));
-				            }
-
-			      # at this point, 'keys' is a vector
-			      if (any(duplicated(keys))) {
-				              return(paste("The 'key' for each record is not unique.\n",
-							           "Columns in key: ", paste(presentCols, collapse = ", "), ".\n", sep=""));
-			            }
-			    }
-
-		      # check for numeric columns
-		      presentCols <- intersect(numericCols, names(data));
-		          if (length(presentCols) > 0) {
-				        exprStr <- paste(paste("any(!is.numeric(data$", presentCols, "))", sep=""), collapse=" || ");
-		            if (eval(parse(text=exprStr))) {
-				            return(paste("One or more columns requires numeric values, but contains non-numerics.\n",
-							         "Columns that must contain numerics: ", paste(presentCols, collapse = ", "),
-								         ".\n", sep=""));
-			          }
-			        }
-
-		          # check for increasing/descreasing POS
-		          if (!is.null(className) && className == "PolySet") {
-				        idx <- .createIDs(data, cols=c("PID", "SID"));
-			        idxFirst <- which(!duplicated(idx));
-				      idxLast <- c((idxFirst-1)[-1], length(idx));
-				      # identify the holes
-				      holes <- (data$POS[idxFirst] > data$POS[idxLast])
-				            # outer/inner contour indices
-				            idxOuter <- rep(!holes, times=((idxLast-idxFirst)+1))
-				            idxInner <- !idxOuter;
-
-					          # POS[i] < POS[i+1]?
-					          lt <- c(data$POS[1:(nrow(data)-1)] < data$POS[2:(nrow(data))], FALSE);
-
-					          # check outer contours; change last vertex of each polygon to
-					          # what we expect for valid outer contours
-					          lt[idxLast] <- TRUE;
-						        # check for any that aren't in order
-						        j <- any(!lt[idxOuter])
-						        if (j) {
-								        j <- !lt;
-							        j[idxInner] <- FALSE;
-								        # add 1 because it's actually the next row that break it
-								        j <- which(j) + 1;
-
-								        return(paste("POS column must contain increasing values for outer contours.\n",
-										             "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
-									      }
-
-							      # check inner contours; change last vertex of each polygon to what
-							      # we expect for valid inner contours
-							      lt[idxLast] <- FALSE;
-							      # check for any that aren't in order
-							      j <- any(lt[idxInner])
-							            if (j) {
-									            j <- lt;
-							              j[idxOuter] <- FALSE;
-								              # do not add 1
-								              j <- which(j);
-
-								              return(paste("POS column must contain decreasing values for inner contours.\n",
-											           "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
-									            }
-							          }
-			    } else {
-				        return(paste("The object must be either a matrix or a data frame.\n"));
-			      }
-    return(data);
-}
-
-.validateData <- function(data, className,
-			  requiredCols = NULL, requiredAttr = NULL,
-			noFactorCols = NULL, noNACols = NULL, keyCols = NULL,numericCols = NULL)
-	# An element of noNACols and keyCols will only be used if it exists in the
-	# data.  To ensure it exists in the data, make it a requiredCol.
-{
-	# convert matrix to data frame
-	if (is.matrix(data)) {
-		data <- .mat2df(data);
-	}
-
-	if (is.data.frame(data) && (nrow(data) > 0)) {
-		# validate optional class name
-		if (!is.null(className) && (class(data)[1] != "data.frame")) {
-			if (class(data)[1] != className) {
-				return(paste("Unexpected class (", class(data)[1], ").\n", sep=""));
-			}
-		}
-
-		# ensure all the required columns exist in the PolySet
-		if (!is.null(requiredCols) &&
-		    !all(is.element(requiredCols, names(data)))) {
-			return(paste("One or more of the required columns is missing.\n",
-				     "Required columns: ", paste(requiredCols, collapse = ", "), ".\n", sep=""));
-		}
-
-		# ensure all the required attributes exists in the PolySet
-		if (!is.null(requiredAttr) &&
-		    !all(is.element(requiredAttr, names(attributes(data))))) {
-			return(paste("One or more of the required attributes is missing.\n",
-				     "Required attributes: ", paste(requiredAttr, collapse = ", "), ".\n", sep=""));
-		}
-
-		# check for NAs
-		presentCols <- intersect(noNACols, names(data));
-		if (length(presentCols) > 0) {
-			# build an expression
-			exprStr <- paste(paste("any(is.na(data$", presentCols, "))", sep=""), collapse=" || ");
-			if (eval(parse(text=exprStr))) {
-				return(paste("One or more columns (where NAs are not allowed) contains NAs.\n",
-					     "Columns that cannot contain NAs: ", paste(presentCols, collapse = ", "),
-					     ".\n", sep=""));
-			}
-		}
-
-		# check for factors
-		presentCols <- intersect(noFactorCols, names(data));
-		if (length(presentCols) > 0) {
-			# build an expression
-			exprStr <- paste(paste("is.factor(data$", presentCols, ")", sep=""), collapse=" || ");
-			if (eval(parse(text=exprStr))) {
-				return(paste("One or more columns contains factors where they are not allowed.\n",
-					     "Columns that cannot contain factors: ", paste(presentCols, collapse = ", "),
-					     ".\n", sep=""));
-			}
-		}
-
-		# check for uniqueness of the keys
-		presentCols <- intersect(keyCols, names(data));
-		if (length(presentCols) > 0) {
-			if (length(presentCols) == 1) {
-				keys <- data[[presentCols]];
-			} else if ((length(presentCols) == 2)
-				   && ((length(intersect(presentCols, c("PID","SID","POS","EID"))) == 2)
-				       || (all(is.integer(data[[presentCols[1]]]))
-					   && all(is.integer(data[[presentCols[2]]]))))) {
-				# additional tests above to "ensure" the two columns contain integers
-				keys <- .createIDs(data, cols=presentCols);
-			} else {
-				# paste the columns together
-				exprStr <- paste("paste(",
-						 paste(paste("data$", presentCols, sep=""), collapse=", "),");", sep="");
-				keys <- eval(parse(text=exprStr));
-			}
-
-			# at this point, 'keys' is a vector
-			if (any(duplicated(keys))) {
-				return(paste("The 'key' for each record is not unique.\n",
-					     "Columns in key: ", paste(presentCols, collapse = ", "), ".\n", sep=""));
-			}
-		}
-
-		# check for numeric columns
-		presentCols <- intersect(numericCols, names(data));
-		if (length(presentCols) > 0) {
-			exprStr <- paste(paste("any(!is.numeric(data$", presentCols, "))", sep=""), collapse=" || ");
-			if (eval(parse(text=exprStr))) {
-				return(paste("One or more columns requires numeric values, but contains non-numerics.\n",
-					     "Columns that must contain numerics: ", paste(presentCols, collapse = ", "),
-					     ".\n", sep=""));
-			}
-		}
-
-		# check for increasing/descreasing POS
-		if (!is.null(className) && className == "PolySet") {
-			idx <- .createIDs(data, cols=c("PID", "SID"));
-			idxFirst <- which(!duplicated(idx));
-			idxLast <- c((idxFirst-1)[-1], length(idx));
-			# identify the holes
-			holes <- (data$POS[idxFirst] > data$POS[idxLast])
-			# outer/inner contour indices
-			idxOuter <- rep(!holes, times=((idxLast-idxFirst)+1))
-			idxInner <- !idxOuter;
-
-			# POS[i] < POS[i+1]?
-			lt <- c(data$POS[1:(nrow(data)-1)] < data$POS[2:(nrow(data))], FALSE);
-
-			# check outer contours; change last vertex of each polygon to
-			# what we expect for valid outer contours
-			lt[idxLast] <- TRUE;
-			# check for any that aren't in order
-			j <- any(!lt[idxOuter])
-			if (j) {
-				j <- !lt;
-				j[idxInner] <- FALSE;
-				# add 1 because it's actually the next row that break it
-				j <- which(j) + 1;
-
-				return(paste("POS column must contain increasing values for outer contours.\n",
-					     "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
-			}
-
-			# check inner contours; change last vertex of each polygon to what
-			# we expect for valid inner contours
-			lt[idxLast] <- FALSE;
-			# check for any that aren't in order
-			j <- any(lt[idxInner])
-			if (j) {
-				j <- lt;
-				j[idxOuter] <- FALSE;
-				# do not add 1
-				j <- which(j);
-
-				return(paste("POS column must contain decreasing values for inner contours.\n",
-					     "Offending rows: ", paste(j, collapse=", "), ".\n",  sep=""));
-			}
-		}
-	} else {
-		return(paste("The object must be either a matrix or a data frame.\n"));
-	}
-	return(data);
-}
-
-
-.validateXYData <- function(xyData)
-	# Perform some simple tests on the object to see if it can possibly be
-	# an xyData object.
-	# If the object is invalid, returns the error message.
-{
-	return(.validateData(xyData,
-			     className = NULL,
-			     requiredCols = c("X", "Y"),
-			     requiredAttr = NULL,
-			     noFactorCols = c("X", "Y"),
-			     noNACols = c("X", "Y"),
-			     keyCols = NULL,
-			     numericCols = c("X", "Y")));
-}
-
-
-convUL <-function (xydata, km = TRUE, southern = NULL) {
-	xydata <- .validateXYData(xydata)
-	if (is.character(xydata)) 
-		stop(paste("Invalid X/Y data 'xydata'.\n", xydata, sep = ""))
-	if (!is.element("projection", names(attributes(xydata))) || 
-	    (!is.element(attr(xydata, "projection"), c("LL", "UTM")))) {
-		stop("Missing or invalid projection attribute.\n")
-	}
-	if ((attr(xydata, "projection") == "LL") && (is.null(attr(xydata, 
-								  "zone")) || is.na(attr(xydata, "zone")))) {
-		m <- mean(xydata$X)
-		if ((m <= -180) || (m > 180)) {
-			stop(paste("Attempted to automatically calculate the missing 'zone' attribute, but", 
-				   "that failed because the mean longitude falls outside the range", 
-				   "-180 < x <= 180.  Please manually set the attribute and then try again.\n", 
-				   sep = "\n"))
-		}
-		attr(xydata, "zone") <- ceiling((m + 180)/6)
-		message("convUL: For the UTM conversion, automatically detected zone ", 
-			attr(xydata, "zone"), ".")
-	} else if (!is.element("zone", names(attributes(xydata))) || 
-		   (attr(xydata, "zone") < 1) || (attr(xydata, "zone") > 
-						  60)) {
-		stop("Invalid or missing zone attribute; possibly out of valid range.\n")
-	}
-	if (is.null(southern)) {
-		if (attr(xydata, "projection") == "LL") 
-			southern <- (mean(range(xydata$Y)) < 0)
-		else if (attr(xydata, "projection") == "UTM") 
-			southern <- FALSE
-		else stop("Projection attribute must be UTM or LL.")
-		message("convUL: Converting coordinates within the ", 
-			ifelse(southern, "southern", "northern"), " hemisphere.")
-	}
-	inXY <- c(xydata$X, xydata$Y)
-	outCapacity <- inVerts <- nrow(xydata)
-	inProj <- attr(xydata, "projection")
-	inZone <- attr(xydata, "zone")
-	if (inProj == "UTM") {
-		if (km) {
-			inXY <- inXY * 1000
-		}
-		toUTM <- FALSE
-	}
-	else {
-		toUTM <- TRUE
-	}
-	results <- .C("convUL", inXY = as.double(inXY), inVerts = as.integer(inVerts), 
-		      toUTM = as.integer(toUTM), zone = as.integer(inZone), 
-		      southern = as.integer(southern), outXY = double(2 * outCapacity), 
-		      outVerts = as.integer(outCapacity), outStatus = integer(1), 
-		      PACKAGE = "PBSmapping")
-	if (results$outStatus == 1) {
-		stop("Insufficient physical memory for processing.\n")
-	}
-	if (results$outStatus == 2) {
-		stop(paste("Insufficient memory allocated for output.  Please upgrade to the latest", 
-			   "version of the software, and if that does not fix this problem, please", 
-			   "file a bug report.\n", sep = "\n"))
-	}
-	outRows <- as.vector(results$outVerts)
-	if (outRows > 0) {
-		if (inProj == "LL" && km) 
-			results$outXY <- results$outXY/1000
-		xydata$X <- results$outXY[1:outRows]
-		xydata$Y <- results$outXY[(outCapacity + 1):(outCapacity + outRows)]
-		if (inProj == "UTM") {
-			attr(xydata, "projection") <- "LL"
-		} else {
-			attr(xydata, "projection") <- "UTM"
-		}
-		return(xydata)
-	} else {
-		return(NULL)
-	}
-}
-
-# perso
-LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in this order
-	coord<-as.data.frame(coord)
-	names(coord)<-c("X","Y")
 
 	# only try to convert not NAs
-	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
-	coordDefined<-coord[sel,] 
-
-	attributes(coordDefined)$projection<-"LL"
-
-	utm.coord<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
-	names(utm.coord)<-c("X","Y")
-	utm.coord[sel,]<-as.data.frame(convUL(coordDefined))
-
-	our.utms<-utm.coord*1000
-	if(max(utm.coord$Y,na.rm=TRUE)<0){
-	our.utms$Y<-our.utms$Y+10000000 # CAREFUL may not be needed with new versions of R
+ 	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
+ 	coordDefined<-coord[sel,] 
+	X<- Y <- rep(0,dim(coordDefined)[1])
+ 
+	# auto detect utm zone if not set
+	if(is.null(utmZone)){
+		# set automaticamente to the utm zone corresponding 
+		# to the mean of X
+		m <- mean(coordDefined$lon);
+		if ((m <= -180) || (m > 180)) {
+			cat("utmZone missing and mean(lon) not in [-180;180]. Aborting.\n")
+			return(NULL)
+		}else{
+			utmZone <- ceiling((m + 180) / 6)
+			message("Automatically detected UTM zone",utmZone)
+		}
+	}
+	if(min(coordDefined$lat)<0){
+		correctif_south<-addSouth
+	}else{
+		correctif_south<-0
 	}
 
-	attributes(our.utms)<-attributes(utm.coord)
+	# conversion
+	out<-.C("multiple_ll_to_utm",
+	   lon=as.numeric(coordDefined$lon),
+	   lat=as.numeric(coordDefined$lat),
+	   ncoord=as.integer(length(X)), 
+	   X=as.numeric(X),
+	   Y=as.numeric(Y),
+	   utmZone=as.integer(utmZone),
+	   addSouth=as.numeric(correctif_south)
+	   )
+
+ 	our.utms<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
+ 	our.utms[sel,]<-cbind(out$X,out$Y)
+ 	names(our.utms)<-c("X","Y")
+ 	attributes(our.utms)$zone <- utmZone
+	if(min(coordDefined$lat)<0){
+		attributes(our.utms)$H <- "S"
+		attributes(our.utms)$addSouth <- addSouth
+	}else{
+		attributes(our.utms)$H <- "N"
+		attributes(our.utms)$addSouth <- 0
+	}
 
 	return(our.utms)
 }
 
+# LL.to.our.utms<-function(coord){ # columns must be Longitude and Latitude in this order
+# 	coord<-as.data.frame(coord)
+# 	names(coord)<-c("X","Y")
+# 
+# 	# only try to convert not NAs
+# 	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
+# 	coordDefined<-coord[sel,] 
+# 
+# 	attributes(coordDefined)$projection<-"LL"
+# 
+# 	utm.coord<-as.data.frame(cbind(rep(NA,dim(coord)[1]),rep(NA,dim(coord)[1])))
+# 	names(utm.coord)<-c("X","Y")
+# 	utm.coord[sel,]<-as.data.frame(convUL(coordDefined))
+# 
+# 	our.utms<-utm.coord*1000
+# 	if(max(utm.coord$Y,na.rm=TRUE)<0){
+# 	our.utms$Y<-our.utms$Y+10000000 # CAREFUL may not be needed with new versions of R
+# 	}
+# 
+# 	attributes(our.utms)<-attributes(utm.coord)
+# 
+# 	return(our.utms)
+# }
 # H may be "S" or "N" if UTMs in South or North hemisphere
-our.utms.to.LL<-function(our.utms,zone=FALSE,H=FALSE){ # columns must be X and Y in this order
-	names(our.utms)<-c("X","Y")
+our.utms.to.LL<-function(our.utms,zone=NULL,H=NULL,addSouth=NULL){ # columns must be X and Y in this order
 
-	if(H=="S" || H=="s"){
-		our.utms$Y<-our.utms$Y-10000000# CAREFUL may not be needed with new versions of R
-	}else if(H!="N" && H!="n"){
-		stop("Missing H (\"S\" or \"N\") for our.utms.to.LL\n");
+	# account for possible correction for south to be positive
+	HA<-attributes(our.utms)$H
+	if(is.null(HA) && is.null(H)){
+		warning("Missing H (\"S\" or \"N\") for our.utms.to.LL. Aborting.\n");
+		return(NULL)
+	}else if(is.null(HA) && ! is.null(H)){
+		H <- H
+	}else if(!is.null(HA) && is.null(H)){
+		H <- HA
+	}else if(!is.null(HA) &&! is.null(H)){
+		nbSouth<-sum(c(HA,H) %in% c("S","s"))
+		if(nbSouth !=0 && nbSouth != 2){
+			warning(paste("H in parameters of our.utms.to.LL (",H,"and in attributes of utms (",attributes(our.utms.to.LL)$H,") do not match. Keeping user specified one.",sep=""))
+			H<-H
+		}else{
+			H<-H
+		}
 	}
-	our.utms$X<-our.utms$X/1000
-	our.utms$Y<-our.utms$Y/1000
+
+	if(sum(H %in% c("S","s"))>0){
+		# set correctif_south
+		addSouthA<-attributes(our.utms)$addSouth
+		if(is.null(addSouth) && is.null(addSouthA)){
+			correctif_south<-10000000
+		}else if(is.null(addSouth) && !is.null(addSouthA)){
+			correctif_south<-addSouthA
+		}else if(!is.null(addSouth) && is.null(addSouthA)){
+			correctif_south<-addSouth
+		}else if(addSouth != addSouthA){
+			warning(paste("addSouth in parameters of our.utms.to.LL (",addSouth,"differs attribute of utms. Keeping user specified one.",sep=""))
+			correctif_south<-addSouth
+		}else{
+			correctif_south<-addSouth
+		}
+	}else{
+		correctif_south<-0
+	}
+
+	# zone setting
+	if(is.null(zone) && is.null(attributes(our.utms)$zone)){
+		warning("Missing zone in our.utms.to.LL. Aborting.\n")
+		return(NULL)
+	}else if(is.null(zone) && ! is.null(attributes(our.utms)$zone)){
+		utmZone<-attributes(our.utms)$zone
+	}else if(! is.null(zone) && is.null(attributes(our.utms)$zone)){
+		utmZone<-zone
+	}else if(zone != attributes(our.utms)$zone){
+		warning(paste("zone parameter (",zone,") of our.utms.to.LL doesn't match the 
+			      zone attribute of the utms (",attributes(our.utms)$zone,"). Keeping the one specified by user but be careful."))
+		utmZone<-zone
+	}else{
+		utmZone<-zone
+	}
 
 	# avoid NAs
 	sel<-which(!is.na(our.utms[,1]) & !is.na(our.utms[,1]))
-	our.utmsDefined<-our.utms[sel,] 
-
-	attributes(our.utmsDefined)$projection<-"UTM"
-	attributes(our.utmsDefined)$zone<-zone
+	defined<-our.utms[sel,]
+	defined$Y<-defined$Y-correctif_south
+	lat<-lon<-rep(0,dim(defined)[1])
 
 	NAvect<-rep(NA,dim(our.utms)[1])
-	back.coord<-as.data.frame(cbind(NAvect,NAvect))
-	names(back.coord)<-c("X","Y")
-	back.coord[sel,]<-as.data.frame(convUL(our.utmsDefined))
-	attributes(back.coord)$projection<-"LL"
+	latlong<-as.data.frame(cbind(NAvect,NAvect))
+	names(latlong)<-c("X","Y")
 
-	return(back.coord)
+	# calculate
+	out<- .C("multiple_utm_to_ll",
+			      X=as.numeric(defined$X),
+			      Y=as.numeric(defined$Y),
+			      ncoord=as.integer(dim(defined)[1]),
+			      lon=as.numeric(lon),
+			      lat=as.numeric(lat),
+			      utmZone=as.integer(utmZone),
+			      correctif = as.numeric(correctif_south)
+			      )
+	latlong[sel,]<-cbind(out$lon,out$lat)
+	attributes(latlong)$projection<-"LL"
+
+	return(latlong)
 }
+
+# # H may be "S" or "N" if UTMs in South or North hemisphere
+# our.utms.to.LL<-function(our.utms,zone=FALSE,H=FALSE){ # columns must be X and Y in this order
+# 	names(our.utms)<-c("X","Y")
+# 
+# 	if(H=="S" || H=="s"){
+# 		our.utms$Y<-our.utms$Y-10000000# CAREFUL may not be needed with new versions of R
+# 	}else if(H!="N" && H!="n"){
+# 		stop("Missing H (\"S\" or \"N\") for our.utms.to.LL\n");
+# 	}
+# 	our.utms$X<-our.utms$X/1000
+# 	our.utms$Y<-our.utms$Y/1000
+# 
+# 	# avoid NAs
+# 	sel<-which(!is.na(our.utms[,1]) & !is.na(our.utms[,1]))
+# 	our.utmsDefined<-our.utms[sel,] 
+# 
+# 	attributes(our.utmsDefined)$projection<-"UTM"
+# 	attributes(our.utmsDefined)$zone<-zone
+# 
+# 	NAvect<-rep(NA,dim(our.utms)[1])
+# 	back.coord<-as.data.frame(cbind(NAvect,NAvect))
+# 	names(back.coord)<-c("X","Y")
+# 	back.coord[sel,]<-as.data.frame(convUL(our.utmsDefined))
+# 	attributes(back.coord)$projection<-"LL"
+# 
+# 	return(back.coord)
+# }
 ## testing / Example
 # arequipa with NA
 latlongArequipa<-mat.or.vec(3,2)
 latlongArequipa[1,]<-c(-71.50535,-16.39649)
 latlongArequipa[2,]<-c(-71.50530,-16.39620)
 latlongArequipa[3,]<-c(NA,NA)
+latlongArequipa<-as.data.frame(latlongArequipa)
+names(latlongArequipa)<-c("lon","lat")
 utmArequipa<-mat.or.vec(3,2)
 utmArequipa[1,]<-c(232411.8,8185554)
 utmArequipa[2,]<-c(232416.8,8185587)
 utmArequipa[3,]<-c(NA,NA)
-calcUtmArequipa<-LL.to.our.utms(latlongArequipa)
-calcLLArequipa<-our.utms.to.LL(calcUtmArequipa,zone=19,H="S")
+suppressMessages(calcUtmArequipa<-LL.to.our.utms(latlongArequipa))
+suppressMessages(calcLLArequipa<-our.utms.to.LL(calcUtmArequipa))
 expect_true(all(calcUtmArequipa[-3,]-utmArequipa[-3,]<1))
 expect_true(all(calcLLArequipa[-3,]-latlongArequipa[-3,]<10e-6))
 
@@ -552,11 +307,13 @@ expect_true(all(calcLLArequipa[-3,]-latlongArequipa[-3,]<10e-6))
 latlongPhilly<-mat.or.vec(2,2)
 latlongPhilly[1,]<-c(-75.06446,40.03222)
 latlongPhilly[2,]<-c(-75.17687,39.98272)
+latlongPhilly<-as.data.frame(latlongPhilly)
+names(latlongPhilly)<-c("lon","lat")
 utmPhilly<-mat.or.vec(2,2)
 utmPhilly[1,]<-c(494500.2,4431335)
 utmPhilly[2,]<-c(484898.5,4425854)
-calcUtmPhilly<- LL.to.our.utms(latlongPhilly)
-calcLLPhilly<-our.utms.to.LL(calcUtmPhilly,zone=18,H="N")
+suppressMessages(calcUtmPhilly<- LL.to.our.utms(latlongPhilly))
+suppressMessages(calcLLPhilly<-our.utms.to.LL(calcUtmPhilly))
 expect_true(all(calcLLPhilly-latlongPhilly<10e-6))
 expect_true(all(calcUtmPhilly-utmPhilly<1))
 
@@ -595,7 +352,6 @@ apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	return(results);
 }
 
-importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)!="try-error"){
 	random_spam_entries_by_row<-function(A){
 		# randomly exchange the *defined entries* of a spam matrix by rows
