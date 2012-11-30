@@ -540,10 +540,23 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 # plot.classes(db$X,db$Y,db$GroupNum)
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
-plot.id<-function(X,Y,ID,plot.points=TRUE,pch=1,cex=0.2,asp=1,...){
-	plot(db$X,db$Y,asp=asp,pch=pch,cex=0.2,col=class.colors(ID),...)
+plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,pch=1,cex=0.2,asp=1,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
-	text(toPlot$X,toPlot$Y,toPlot[,1])
+	names(toPlot)[1]<-"ID"
+	colPalette<-class.colors(toPlot$ID)
+	indiceOfID<-match(ID,toPlot$ID)
+
+	if(plot.points && !add){
+		plot(db$X,db$Y,asp=asp,pch=pch,cex=0.2,col=colPalette[indiceOfID],...)
+	}else if(plot.points && add){
+		lines(db$X,db$Y,pch=pch,cex=0.2,col=colPalette[indiceOfID],type="p",...)
+	}else if(!plot.points && !add){
+		plot(range(db$X),range(db$Y),asp=asp,type="n",...)
+	}
+
+	text(toPlot$X,toPlot$Y,toPlot$ID,col=colPalette)
+
+	return(invisible(toPlot))
 }
 
 # # Ex:
