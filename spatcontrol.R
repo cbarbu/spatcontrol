@@ -1111,6 +1111,7 @@ zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NU
 	}
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
+	
 	if(!is.null(zNA)){
 		cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
 		o.p<-0*y.p+1
@@ -2707,6 +2708,7 @@ fit.spatautocorel<-function(db=NULL,
 			    threshold=50,
 			    use.v=TRUE,
 			    cofactors=NULL,
+			    save.fields=FALSE,
 			    fit.OgivP=FALSE
 			    ){
   # # db should contain in columns at least:
@@ -3108,9 +3110,11 @@ write.table(t(namesSampled),monitorfile,sep="\t",col.names=FALSE,row.names=FALSE
 write.table(t(sampled[1,]), monitorfile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
 lastsaved<-1
 
-write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
-write.table(t(w), "wsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
-write.table(t(y), "ypsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
+if(save.fields){
+	write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
+	write.table(t(w), "wsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
+}
+write.table(t(as.numeric(y>0)), "ypsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 if(use.cofactors){
 	write.table(t(cofs), coffile, sep="\t",col.names=FALSE,row.names=FALSE,append=FALSE)
 	write.table(t(c.val), coffile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
@@ -3428,9 +3432,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   ### save to files every freqsave or before stopping
   if(num.simul%%freqsave==0 || num.simul==(nbiterations)){ 
-    cat("\nSaving at",num.simul,", out of:",nbiterations," ");
-    write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
-    write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
+	  cat("\nSaving at",num.simul,", out of:",nbiterations," ");
+	  if(save.fields){
+		  write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+		  write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+	  }
     write.table(t(as.numeric(yprime)), "ypsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
 
     toWrite<-sampled[(lastsaved+1):(num.simul+1),]
@@ -3686,16 +3692,15 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
     }
     attributes(densfit)$Nthin<-Nthin
     if(Nthin>1){
-      name<-paste(name," thinned x",Nthin,sep="")
+	    name<-paste(name," thinned x",Nthin,sep="")
     }
 
     if(class(densfit)== "try-error"){
 	    vals<-NULL
-
-	  cat("Could not fit an estimate for",name,". Try cb.diag(thisVariable) and pass the not BurnIn part of the chain to get.estimate.\n")
-	  if(visu){
-		  hist(C,xlab=name)
-	  }
+	    cat("Could not fit an estimate for ",name,". Try cb.diag(thisVariable) and pass the not BurnIn part of the chain to get.estimate.\n",sep="")
+	    if(visu){
+		    hist(C,xlab=name)
+	    }
     }else{
 	    vals<-predict(densfit,estimate)
     if(visu){
