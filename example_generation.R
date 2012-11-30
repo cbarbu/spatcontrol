@@ -1,4 +1,4 @@
-source("spatcontrol/spatcontrol.R",local=TRUE)
+source("spatcontrol/spatcontrol.R",local=TRUE,chdir=TRUE)
 db<-read.csv("OriginalDataPaucarpata.csv")
 db<-set_to(db,init=c("NULL"),final=0)
 db<-db[which(!is.na(db$easting)),]
