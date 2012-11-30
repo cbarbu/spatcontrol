@@ -1,0 +1,137 @@
+Analysis de Datos spaciales con spatcontrol:
+============================================
+
+1 - Mapear casas y manzanas: 
+   googleearth
+   Usa croquis papel de terreno
+   --> kmz de casas, kmz de manzanas
+
+2 - Juntar mapas de casas y de manzanas: 
+   Usa kmz de casas y kmz de manzanas
+   check_points_to_poly.sh (se puede llamar en la carpeta de los kmz con click derecho > scripts > check_points_to_poly.sh)
+   --> points-blocks.csv.R
+
+3 - Juntar mapas con bases de encuestas, rociado, etc.
+   Usa points-blocks.csv.R y base.csv y spatcontrol
+   Lanza R en la carpeta de los .csv y sigue el ejemplo 
+   de spatcontrol/merge_mapa_con_base.R
+   --> base con puntos en un .csv
+
+4 - Analysar
+   Usa en la misma carpeta:
+       - una base con puntos en .csv
+       - spatcontrol
+       - parametros en parameters_extrapol.R
+       (- manual_stop.R) para parar MCMC de manera
+       - un script R que sigue uno de los ejemplos de spatcontrol/
+	- example_fit_GMRF.R : para evaluar todos los parametros
+          --> parametros de la positividad en la mapa (cadenas: traces(), distributiones: posteriors(), tabla: summary.spatcontrol())
+        - example_generation.R : generar mapas ficticias de positividad
+            usando parametros dados 
+          --> nuevos bases.csv con positividad ficticia
+        - example_extrapol.R : para extender la evaluacion a toda una
+            mapa con parametros de correlation spatial dados. 
+          --> mapas de riesgo (pdf si non-interactivo, en la pantalla si           interactivo)
+        - example_structuredMI.R : para evaluar el impacto de calles 
+            rapidamente con curvas de correlation spatial
+          --> curbas de relacion spatial d'accuerdo con la distancia
+   
+   Dos modalidades possibles: 
+      - interactivo para pruebar. En R: 
+           source("example_*.R")
+      - non-interactivo para salvar.
+         Con sec_launch.sh, directamente en el terminal:
+           spatcontrol/sec_launch.sh example_*.R
+
+5 - Control de las analysis (solo para analysis con cadenas)
+    Usa: archivos generados por el exampole_*.R
+    
+    En la carpeta donde se hace el analysis, 
+	- copiar check_simu.R si todavia no esta
+	- lancar R y luego:
+           source("check_simu.R")
+	- tambien se pueden hacer otras commandas despues de llamar 
+          a check_simu.R
+
+6 - guardar graphicos etc...
+    En R, despues de llamar a check_simu.R, hacer de nuevo los graphicos
+    etc... que queremos. Con por ejemplo las functiones:
+       dev.new() : abre nueva ventana
+       posterior(sampled$T) : da el posterior de la columna T en sampled
+       plot( de lo que sea) : hacer nuevas mapas 
+       plot_reel(X,Y,Z) : mapa con Z en tonos de amarillo sobre negro
+       dev.print(device=pdf,"miimagen.pdf") | salva imagen
+       dev.print(device=png,"miimagen.png") |
+       ...        
+
+7 - Finalysar graphicos
+    Usa pdf/png, 
+    Inkscape: corrige las leyendas, aniade flechas etc...
+    gimp : corrige imagenes raster (solo para publicaccion, final)
+
+8 - Escribir
+
+Installacion: 
+=============
+- nunca hace nada en el share: el share es para guardar
+
+- instala bien el spatcontrol
+    - git clone "la dirreccion de spatcontrol que encuentras en google"
+    - en spatcontrol/
+	R CMD SHLIB spatcontrol.c
+    - copiar de spatcontrol los ejemplos, parametros que necessitas
+
+- instala bien el check_points_to_poly.sh
+    - copia la ultima version debe de estar en :
+    share/software/check_points_to_poly.zip
+    - extraer con double click, NO EN EL SHARE
+    - abrir el terminal en check_points_to_poly/
+    - installar:
+      sudo ./install_points_to_poly.sh
+
+Detalles sobre analysis:
+========================
+Hay mayormente dos manejas de modular las analysis: 
+1 - seleccionando datos
+2 - cambiando los parametros
+
+Aqui vemos unos detalles sobre estos processos.
+
+1 - Seleccion de datos
+----------------------
+Si quiere hacer una analysis sobre una parte de los datos se necessita:
+- visualizar
+Puede ser muy util hacer un:
+plot_reel(X,Y,Z) # para visualisar los valores de Z como tonos de amarillo
+
+Spatcontrol tambien tiene una function zoom:
+zm() # para focalizar se en unas partes de la mapa
+
+Luego para selectionar groupos de puntos (como localidades) es practico usar:
+plot.id(X,Y,L) # donde L es el la columna con la localidad del punto por ejemplo
+
+Una ves identificadas las localidades se puede selectionnar los puntos sensillamente con which():
+sel <- which(L==11 | L == 23 | L == 12) # numeros identificados antes
+
+Y correr con la seleccion la analysis, por ejemplo la extrapolation de positividad:
+
+dbFit<-extrapol.spatautocorel(db=db[sel,],nbiterations=-1)
+
+2 - Cambio de parametros
+------------------------
+
+Se pueden ver los parametros disponibles para una function normal en R:
+
+?elnombredelafunction
+
+spatcontrol todavia no tiene este nivel de detalle pero se pueden checkar las opciones en el archivo spatcontrol.R. En particular fit.spatcontrol tiene muchas opcionnes.
+
+Tambien pueden preguntar Corentin si algo se puede hacer y como.
+
+
+
+
+
+
+
+
