@@ -126,6 +126,8 @@ Se pueden ver los parametros disponibles para una function normal en R:
 
 spatcontrol todavia no tiene este nivel de detalle pero se pueden checkar las opciones en el archivo spatcontrol.R. En particular fit.spatcontrol tiene muchas opcionnes.
 
+A demas el fit.spatcontrol() tiene un systema que se adapta a lo que le das en el parametero "db" si no tiene numeros de manzanas por ejemplo no los usa etc.
+
 Tambien pueden preguntar Corentin si algo se puede hacer y como.
 
 
