@@ -32,25 +32,33 @@ set_to<-function(x,init=c("NULL"),final=0){
     if(class(x) != 'data.frame')
         stop('x must be a data.frame')
     if(length(final)>1){
-        warning("final is of length >1, will o# nly use first item\n")
+        warning("final is of length >1. Abort set_to.\n")
+    	return(NULL)
     }
 
     isfacts <- sapply(x, is.factor)
-    for(colname in names(x)[isfacts]){
-        x[,colname] <- factor(x[,colname], levels=unique(c(levels(x[,colname]), final)))
-        sel<-which(x[,colname]%in%init)
-	if("NA" %in% init){
-		cat("NA in init")
-		sel<-c(sel,which(is.na(x[,colname])))
-	}
+    for(colname in names(x)){
+	    # if factors avoid problem of missing levels
+	    if(colname %in% names(x)[isfacts]){
+		    x[,colname] <- factor(x[,colname], levels=unique(c(levels(x[,colname]), final)))
+	    }
+	    # select lines to change
+	    sel<-which(x[,colname]%in%init)
+	    if("NA" %in% init){
+		    sel<-c(sel,which(is.na(x[,colname])))
+	    }
 
-        if(length(sel>0)){
-            x[sel,colname]<-as.character(final)
-        }
-        nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
-        if(nbNA==0){
-            x[,colname]<-as.numeric(as.character(x[,colname]))
-        }
+	    # change
+	    if(length(sel>0)){
+		    x[sel,colname]<-as.character(final)
+	    }
+	    # if factor try to switch to numeric
+	    if(colname %in% names(x)[isfacts]){
+		    nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
+		    if(nbNA==0){
+			    x[,colname]<-as.numeric(as.character(x[,colname]))
+		    }
+	    }
     }
 
     return(x)
@@ -501,6 +509,8 @@ pseudo_inv<-function(A){
 #--------------------------------------
 # Plotting
 #--------------------------------------
+source("zoom.r") # this should a separate package
+
 strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","purple","yellow","grey","orange","slategrey","navyblue","darkgreen")
 
 plot.palette<-function(colVect=palette()){
@@ -529,6 +539,16 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 }
 # plot.classes(db$X,db$Y,db$GroupNum)
 
+# plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
+plot.id<-function(X,Y,ID,plot.points=TRUE,pch=1,cex=0.2,asp=1,...){
+	plot(db$X,db$Y,asp=asp,pch=pch,cex=0.2,col=class.colors(ID),...)
+	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
+	text(toPlot$X,toPlot$Y,toPlot[,1])
+}
+
+# Ex:
+db <- read.csv("JitteredDataPaucarpata.csv")
+plot.id(db$X,db$Y,db$GroupNum)
 
 # barplot with confidence intervals
 barplot.ci<-function(y,yminus,ymax,ylim=c(min(y,yminus,ymax),max(y,yminus,ymax)),...){
@@ -536,6 +556,7 @@ barplot.ci<-function(y,yminus,ymax,ylim=c(min(y,yminus,ymax),max(y,yminus,ymax))
 	xbar<-barplot(y,ylim=ylim,...)
 
 	errbar(xbar,y,yminus,ymax,add=TRUE,type="n")
+	# may want to replace it with plotCI
 	
 	return(xbar)
 }
@@ -569,9 +590,9 @@ boxplot.free<-function(x,breaks=c(0.025,0.25,0.5,0.75,0.975),rm.out=TRUE,...){
 		out$group<-c()
 	}
 	bxp(out,...)
-	return(out)
+	return(invisible(out))
 }
-# example:
+# # example:
 # fakeData<-cbind(rnorm(100,mean=1,sd=1),rnorm(100,mean=3,sd=2))
 # boxplot.free(fakeData)
 
