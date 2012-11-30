@@ -3746,9 +3746,9 @@ group.posteriors<-function(db,main=NULL,visu=TRUE,leg=NULL,true.vals=NULL,pal=st
     if(!is.null(db)){
       maxdens<-0
       for(monitored in names(db)){
-	estimates[[monitored]]<-get.estimate(db[,monitored],visu=FALSE)
-	if(visu){
-	  densfit<-attributes(estimates[[monitored]])$densfit
+	estimates[[monitored]]<-get.estimate(db[,monitored],name=monitored,visu=FALSE)
+	densfit<-attributes(estimates[[monitored]])$densfit
+	if(visu && class(densfit)!= "try-error"){
 	  r<-densfit$box
 	  vals<-seq(r[1],r[2],(r[2]-r[1])/100)
 	  maxDensMon<-max(predict(densfit,vals))
