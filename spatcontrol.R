@@ -3465,7 +3465,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
     lastsaved<-num.simul+1
     ## manual stop
-    try(source("manual_stop.R",local=TRUE))
+    try(source("manual_stop.R",local=TRUE),silent=TRUE)
   }
   
   num.simul<-num.simul+1
