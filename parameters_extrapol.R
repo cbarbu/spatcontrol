@@ -7,14 +7,14 @@
 # these values be estimated using a 
 # representative sample 
 #=======================
-T <- 0.3 # 0.3119698
-f <- 9
-Ku<- 0.48
-Kv<- 169
-mu <- -1
+T <- 0.3 # efecto de calles (bajo de 1 es barrera)
+f <- 9 # distancia caracteristica de la relacion espacial
+Ku<- 0.48 # error espacial ( mas grande es menos el error)
+Kv<- 169 # error no espacial ( mas grande es menos el error)
+mu <- -1 # fuerza inicial del preditor espacial (negativo es probabilidad de positividad menos de 0.5)
 # startCof<-c(0.68,0.47,0.21,-1.14,-0.28)
 # names(startCof)<-c("CU","PE","oanimal","I.NO","P.NO")
-# meanBeta<-0.696
+# meanBeta<-0.696 # deteccion de los inspectores
 
 #=======================
 # Priors and quantitative parameters of the model
@@ -41,8 +41,8 @@ Kc<-1/sqrt(2.5) # gelman's prior scale for coefficients in arm/bayesglm
 Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 
 ## inspectors
-abeta <- 1; ## (18,2) allow to have the mean at 0.9
-bbeta <- 1; ## (1,1) gives flat prior
+abeta <- 18; ## (18,2) allow to have the mean at 0.9
+bbeta <- 2; ## (1,1) gives flat prior
 
 priorinspquality<- 1 # if insp not fitted quality of inspectors
 
