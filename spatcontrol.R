@@ -13,10 +13,10 @@ library("binom")
 library(fields)
 importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)=="try-error"){
-cat("ERROR\n")
-cat("Falta spatcontrol.so por favor compilan el spatcontrol.c\n")
-cat("En spatcontrol/ hacer:\n R CMD SHLIB spatcontrol.c\n")
-stop("No puedo seguir")
+	cat("ERROR\n")
+	cat("Falta spatcontrol.so en:",getwd(),"por favor compilan el spatcontrol.c\n")
+	cat("En spatcontrol/ hacer:\n R CMD SHLIB spatcontrol.c\n")
+	stop("No puedo seguir")
 }
 #===============================
 # General purpose functions
@@ -66,6 +66,7 @@ set_to<-function(x,init=c("NULL"),final=0){
 # change name of a column using its name
 changeNameCol <- function(Table,oldname,newname){
 	names(Table)[which(names(Table)==oldname)]<-newname
+
 	return(Table)
 }
 # remove a column
@@ -1110,12 +1111,13 @@ zgen<-function(detection,zNA,Q=NULL,Kv=NULL,Ku=NULL,mu=NULL,c.comp=NULL,est.v=NU
 	}
 
 	y.p <- rnorm(n=dimension, mean=w.p, sd=1);
-	o.p<-0*y.p
 	if(!is.null(zNA)){
 		cat("mean y.p",mean(y.p),"sd y.p",sd(y.p),"\n")
-		o.p[!zNA]<-0
+		o.p<-0*y.p+1
+		o.p[zNA]<-0
 	}else{
 		## opening
+		o.p<-0*y.p
 		o.p[y.p>0]<-rbinom(count(y.p>0),1,poi)
 		o.p[y.p<=0]<-rbinom(count(y.p<=0),1,poni)
 		cat("mean o.p",mean(o.p),"poi:",poi,"poni:",poni,"\n")
