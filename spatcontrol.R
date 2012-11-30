@@ -546,9 +546,9 @@ plot.id<-function(X,Y,ID,plot.points=TRUE,pch=1,cex=0.2,asp=1,...){
 	text(toPlot$X,toPlot$Y,toPlot[,1])
 }
 
-# Ex:
-db <- read.csv("JitteredDataPaucarpata.csv")
-plot.id(db$X,db$Y,db$GroupNum)
+# # Ex:
+# db <- read.csv("JitteredDataPaucarpata.csv")
+# plot.id(db$X,db$Y,db$GroupNum)
 
 # barplot with confidence intervals
 barplot.ci<-function(y,yminus,ymax,ylim=c(min(y,yminus,ymax),max(y,yminus,ymax)),...){
