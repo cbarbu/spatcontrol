@@ -2,7 +2,7 @@ source("spatcontrol/spatcontrol.R",chdir=TRUE)
 graphics.off()
 sampled<-get.sampled()
 traces(sampled[-1,])
-estimates<-posteriors(sampled[-1,-c("i")])
+estimates<-posteriors(sampled[-1,])
 
 cofs<-get.cofactors()
 if(!is.null(cofs)){
