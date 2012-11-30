@@ -12,6 +12,12 @@ library(locfit)
 library("binom")
 library(fields)
 importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
+if(class(importOk)=="try-error"){
+cat("ERROR\n")
+cat("Falta spatcontrol.so por favor compilan el spatcontrol.c\n")
+cat("En spatcontrol/ hacer:\n R CMD SHLIB spatcontrol.c\n")
+stop("No puedo seguir")
+}
 #===============================
 # General purpose functions
 #===============================
