@@ -6,6 +6,7 @@ betasamples.txt
 output.lst
 .Rhistory
 *.o
+*.swp
 OriginalDataPaucarpata.csv
 EndSampleImage.img
 cofactors.txt
