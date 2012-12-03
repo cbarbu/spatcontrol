@@ -120,13 +120,22 @@ dbFit<-extrapol.spatautocorel(db=db[sel,],nbiterations=-1)
 2 - Cambio de parametros
 ------------------------
 
-Se pueden ver los parametros disponibles para una function normal en R:
+Los cambios de valors se hacen en:
 
-?elnombredelafunction
+parameters_extrapol.R
 
-spatcontrol todavia no tiene este nivel de detalle pero se pueden checkar las opciones en el archivo spatcontrol.R. En particular fit.spatcontrol tiene muchas opcionnes.
+Luego se puede usar o no unos typos de datos quitandoles de db por ejemplo se puede quitar la columna IdObserver para que no tome en cuenta las differencias dentre inspectores:
 
-A demas el fit.spatcontrol() tiene un systema que se adapta a lo que le das en el parametero "db" si no tiene numeros de manzanas por ejemplo no los usa etc.
+db<-removeCol(db,"IdObserver")
+
+y luego 
+
+fit.spatautocorel(db=db, etc.)
+
+Para activar o no una parte del modelo, por ejemplo la probabilad de abrir cuando infestado se debe modificar las opciones de fit.spatautocorel() o extrapol.spatautocorel()
+extrapol.spatautocorel(fit.
+
+Se pueden checkar las opciones disponibles en spatcontrol.R donde se define fit.spatautocorel()
 
 Tambien pueden preguntar Corentin si algo se puede hacer y como.
 
