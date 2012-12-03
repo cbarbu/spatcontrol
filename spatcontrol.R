@@ -3190,7 +3190,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     if(fit.OgivP){
 	    nInfOpen<-length(which(yprime & openned))
 	    nInfNotOpen<-length(which(yprime & ! openned))
-	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.pio,beta.pio)
+	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
 
 	    nNotInfOpen<-length(which(!yprime & openned))
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))

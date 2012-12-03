@@ -44,6 +44,12 @@ Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 abeta <- 18; ## (18,2) allow to have the mean at 0.9
 bbeta <- 2; ## (1,1) gives flat prior
 
+alpha.poi <- 0.5
+beta.poi <- 0.5
+
+alpha.poni <- 0.5
+beta.poni <- 0.5
+
 priorinspquality<- 1 # if insp not fitted quality of inspectors
 
 #=======================
