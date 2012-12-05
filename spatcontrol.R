@@ -2763,7 +2763,7 @@ write.csv(db,"dbFitted.csv",row.names=FALSE)
     use.insp<-TRUE
     mes<-paste("(",length(levels(as.factor(db$IdObserver))),")",sep="")
   }
-  cat("Account for observers:",use.insp,mes,"\n") 
+  cat("Account for observers:",use.insp,mes,"(",priorinspquality,")\n") 
   
   cat("Fit p(Observed|Positive):",fit.OgivP,"\n") 
 
