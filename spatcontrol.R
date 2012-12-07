@@ -52,12 +52,9 @@ set_to<-function(x,init=c("NULL"),final=0){
 	    if(length(sel>0)){
 		    x[sel,colname]<-as.character(final)
 	    }
-	    # if factor try to switch to numeric
-	    if(colname %in% names(x)[isfacts]){
-		    nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
-		    if(nbNA==0){
-			    x[,colname]<-as.numeric(as.character(x[,colname]))
-		    }
+	    nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
+	    if(nbNA==0){
+		    x[,colname]<-as.numeric(as.character(x[,colname]))
 	    }
     }
 
