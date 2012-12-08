@@ -42,6 +42,32 @@ if(class(importOk)=="try-error"){
 count<-function(vect){
 	return(length(which(vect)))
 }
+getFactorsHomogeneous<-function(d1,d2){
+	# d1 y d2 tienen que 
+	for(col in 1:length(names(d1))){ # para cada columna
+		c1<-d1[,col];
+		c2<-d2[,col];
+
+		# si son factors fuerza los levels
+		if(is.factor(c1)||is.factor(c2)){
+			c1<-as.factor(c1)
+			c2<-as.factor(c2)
+			lev<-unique(c(levels(c1),levels(c2)));
+			d1[,col]<-factor(c1,levels=lev);
+			d2[,col]<-factor(c2,levels=lev);
+		}
+	}
+	return(list(d1=d1,d2=d2));
+}
+# junta dos dataframe para todas las columnas de mismo nombre
+# cuidando de los factores
+rbind.general<-function(d1,d2){
+	colComun<-intersect(names(d1),names(d2))
+	d1d2<-getFactorsHomogeneous(d1[,colComun],d2[,colComun])
+	uniond1d2<-rbind(d1d2$d1,d1d2$d2)
+	return(uniond1d2)
+}
+
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
     # if possible to change the column to numeric do it
