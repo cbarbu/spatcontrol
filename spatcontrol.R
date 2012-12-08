@@ -2722,7 +2722,10 @@ fit.spatautocorel<-function(db=NULL,
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
   # uncommenting break() in manual_stop.R
-write.csv(db,"dbFitted.csv",row.names=FALSE)
+
+  # avoid a number of miscodifications
+  db<-set_to(db,init=c("NULL","NA"),final=0)
+  write.csv(db,"dbFitted.csv",row.names=FALSE)
 
   # source(pfile)
   source("parameters_extrapol.R") # mainly parameters priors
@@ -2730,7 +2733,6 @@ write.csv(db,"dbFitted.csv",row.names=FALSE)
     cat("\nMissing \"positive\" in db. Aborting.\n")
     return(NULL)
   }
-
 
   cat("\n")
   cat("Assessing computation to perform\n")
