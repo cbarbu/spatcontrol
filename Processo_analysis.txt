@@ -46,13 +46,16 @@ Analysis de Datos spaciales con spatcontrol:
            spatcontrol/servidor_sec_launch.sh example_*.R
 
 5 - Control de las analysis (solo para analysis con cadenas)
-    Usa: archivos generados por el exampole_*.R
-    
-    En la carpeta donde se hace el analysis, 
-	- copiar check_simu.R si todavia no esta
-	- lancar R y luego:
+    0- si la simulacion se hace en servidor, primero hace
+	agara_output_servidor.sh
+       Para copiar los resultados corrientes en local
+
+    1- entra en la carpeta donde se hace el analysis o copiada desde servidor
+    2- copiar check_simu.R si todavia no esta
+    3- lancar R y luego:
            source("check_simu.R")
-	- tambien se pueden hacer otras commandas despues de llamar 
+
+    Tambien se pueden hacer otras commandas despues de llamar 
           a check_simu.R
 
 6 - guardar graphicos etc...
