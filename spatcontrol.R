@@ -11,13 +11,31 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
+compilLoad<-function(sourcef){
+	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
+	if(file.exists(sourcef)){
+		exitCode<-system(paste("R CMD SHLIB",sourcef))
+		if(exitCode!=0){
+			stop("Compilation of ",sourcef," failed")
+		}else{
+			importOk<-try(dyn.load(gsub(".c$",".so",sourcef)),silent=TRUE)
+		}
+	}else{
+		importOk<-paste(sourcef,"missing")
+		class(importOk)<-"try-error"
+
+	}
+	return(importOk)
+}
+# importOk <-compilLoad("spatcontrol/spatcontrol.c")
+
+
 importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)=="try-error"){
-	cat("ERROR\n")
-	cat("Falta spatcontrol.so en:",getwd(),"por favor compilan el spatcontrol.c\n")
-	cat("En spatcontrol/ hacer:\n R CMD SHLIB spatcontrol.c\n")
-	stop("No puedo seguir")
+	importOk <-compilLoad("spatcontrol.c")
+	
 }
+
 #===============================
 # General purpose functions
 #===============================
