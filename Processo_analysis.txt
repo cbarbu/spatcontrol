@@ -145,6 +145,36 @@ Se pueden checkar las opciones disponibles en spatcontrol.R donde se define fit.
 Tambien pueden preguntar Corentin si algo se puede hacer y como.
 
 
+Detaille de como lancar las cosas en servidor:
+==============================================
+
+          A mano				 	Automatico
+====================================================================================
+				       Lancar
+				----------------------
+En local:					En local:
+ scp -r miCarpeta 192.168.1.2:.	
+ ssh 192.168.1.2		
+						 spatcontrol/servidor_sec_launch.sh
+En servidor:			 
+ cd miCarpeta/spatcontrol
+ rm spatcontrol.o
+ R CMD SHLIB spatcontrol.c
+ cd ..
+ spatcontrol/sec_launch.sh miscript.R
+
+				       Checkar
+				----------------------
+
+En local:					En local:
+ scp -r 192.168.1.2:outputs/carpetaCalculo .	agara_output_servidor.sh
+			
+
+				 cd carpetaCalculo
+				 Copiar un check_simu.R si todavia no hay
+				 R
+				 en R: source("check_simu.R")
+
 
 
 
