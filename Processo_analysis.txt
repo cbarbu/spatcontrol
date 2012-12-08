@@ -36,12 +36,14 @@ Analysis de Datos spaciales con spatcontrol:
             rapidamente con curvas de correlation spatial
           --> curbas de relacion spatial d'accuerdo con la distancia
    
-   Dos modalidades possibles: 
+   Tres modalidades possibles: 
       - interactivo para pruebar. En R: 
            source("example_*.R")
       - non-interactivo para salvar.
          Con sec_launch.sh, directamente en el terminal:
            spatcontrol/sec_launch.sh example_*.R
+      - non-interactivo en servidor
+           spatcontrol/servidor_sec_launch.sh example_*.R
 
 5 - Control de las analysis (solo para analysis con cadenas)
     Usa: archivos generados por el exampole_*.R
@@ -138,7 +140,6 @@ extrapol.spatautocorel(fit.
 Se pueden checkar las opciones disponibles en spatcontrol.R donde se define fit.spatautocorel()
 
 Tambien pueden preguntar Corentin si algo se puede hacer y como.
-
 
 
 
