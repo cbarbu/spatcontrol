@@ -11,19 +11,63 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
+compilLoad<-function(sourcef){
+	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
+	if(file.exists(sourcef)){
+		exitCode<-system(paste("R CMD SHLIB",sourcef))
+		if(exitCode!=0){
+			stop("Compilation of ",sourcef," failed")
+		}else{
+			importOk<-try(dyn.load(gsub(".c$",".so",sourcef)),silent=TRUE)
+		}
+	}else{
+		importOk<-paste(sourcef,"missing")
+		class(importOk)<-"try-error"
+
+	}
+	return(importOk)
+}
+# importOk <-compilLoad("spatcontrol/spatcontrol.c")
+
+
 importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)=="try-error"){
-	cat("ERROR\n")
-	cat("Falta spatcontrol.so en:",getwd(),"por favor compilan el spatcontrol.c\n")
-	cat("En spatcontrol/ hacer:\n R CMD SHLIB spatcontrol.c\n")
-	stop("No puedo seguir")
+	importOk <-compilLoad("spatcontrol.c")
+	
 }
+
 #===============================
 # General purpose functions
 #===============================
 count<-function(vect){
 	return(length(which(vect)))
 }
+getFactorsHomogeneous<-function(d1,d2){
+	# d1 y d2 tienen que 
+	for(col in 1:length(names(d1))){ # para cada columna
+		c1<-d1[,col];
+		c2<-d2[,col];
+
+		# si son factors fuerza los levels
+		if(is.factor(c1)||is.factor(c2)){
+			c1<-as.factor(c1)
+			c2<-as.factor(c2)
+			lev<-unique(c(levels(c1),levels(c2)));
+			d1[,col]<-factor(c1,levels=lev);
+			d2[,col]<-factor(c2,levels=lev);
+		}
+	}
+	return(list(d1=d1,d2=d2));
+}
+# junta dos dataframe para todas las columnas de mismo nombre
+# cuidando de los factores
+rbind.general<-function(d1,d2){
+	colComun<-intersect(names(d1),names(d2))
+	d1d2<-getFactorsHomogeneous(d1[,colComun],d2[,colComun])
+	uniond1d2<-rbind(d1d2$d1,d1d2$d2)
+	return(uniond1d2)
+}
+
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
     # if possible to change the column to numeric do it
@@ -52,12 +96,9 @@ set_to<-function(x,init=c("NULL"),final=0){
 	    if(length(sel>0)){
 		    x[sel,colname]<-as.character(final)
 	    }
-	    # if factor try to switch to numeric
-	    if(colname %in% names(x)[isfacts]){
-		    nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
-		    if(nbNA==0){
-			    x[,colname]<-as.numeric(as.character(x[,colname]))
-		    }
+	    nbNA<-suppressWarnings(length(which(is.na(as.numeric(as.character(x[,colname]))))))
+	    if(nbNA==0){
+		    x[,colname]<-as.numeric(as.character(x[,colname]))
 	    }
     }
 
@@ -542,7 +583,7 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 # plot.classes(db$X,db$Y,db$GroupNum)
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
-plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=TRUE,col.points=TRUE,pch=1,cex=0.2,asp=1,...){
+plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
 	names(toPlot)[1]<-"ID"
 	colPalette<-class.colors(toPlot$ID)
@@ -2727,7 +2768,10 @@ fit.spatautocorel<-function(db=NULL,
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
   # uncommenting break() in manual_stop.R
-write.csv(db,"dbFitted.csv",row.names=FALSE)
+
+  # avoid a number of miscodifications
+  db<-set_to(db,init=c("NULL","NA"),final=0)
+  write.csv(db,"dbFitted.csv",row.names=FALSE)
 
   # source(pfile)
   source("parameters_extrapol.R") # mainly parameters priors
@@ -2735,7 +2779,6 @@ write.csv(db,"dbFitted.csv",row.names=FALSE)
     cat("\nMissing \"positive\" in db. Aborting.\n")
     return(NULL)
   }
-
 
   cat("\n")
   cat("Assessing computation to perform\n")

@@ -36,21 +36,26 @@ Analysis de Datos spaciales con spatcontrol:
             rapidamente con curvas de correlation spatial
           --> curbas de relacion spatial d'accuerdo con la distancia
    
-   Dos modalidades possibles: 
+   Tres modalidades possibles: 
       - interactivo para pruebar. En R: 
            source("example_*.R")
       - non-interactivo para salvar.
          Con sec_launch.sh, directamente en el terminal:
            spatcontrol/sec_launch.sh example_*.R
+      - non-interactivo en servidor
+           spatcontrol/servidor_sec_launch.sh example_*.R
 
 5 - Control de las analysis (solo para analysis con cadenas)
-    Usa: archivos generados por el exampole_*.R
-    
-    En la carpeta donde se hace el analysis, 
-	- copiar check_simu.R si todavia no esta
-	- lancar R y luego:
+    0- si la simulacion se hace en servidor, primero hace
+	agara_output_servidor.sh
+       Para copiar los resultados corrientes en local
+
+    1- entra en la carpeta donde se hace el analysis o copiada desde servidor
+    2- copiar check_simu.R si todavia no esta
+    3- lancar R y luego:
            source("check_simu.R")
-	- tambien se pueden hacer otras commandas despues de llamar 
+
+    Tambien se pueden hacer otras commandas despues de llamar 
           a check_simu.R
 
 6 - guardar graphicos etc...
@@ -138,7 +143,6 @@ extrapol.spatautocorel(fit.
 Se pueden checkar las opciones disponibles en spatcontrol.R donde se define fit.spatautocorel()
 
 Tambien pueden preguntar Corentin si algo se puede hacer y como.
-
 
 
 

@@ -110,6 +110,12 @@ if [[ "$1" != "." ]] ; then
 				if [[ -e $file ]] ; then 
 					copy_with_dep "$file" "$out_dir"
 				fi
+				if [[ "${file##*.}" == "so" ]] ; then 
+					source="${file%.*}.c"
+					if [[ -e "$source" ]] ; then
+						copy_with_dep "$source" "$out_dir"
+					fi
+				fi
 			done
 			cd "$oldDir"
 		fi
