@@ -347,6 +347,7 @@ rowsum.spam <- function(A){
 rsum<-function(x,...)
 UseMethod("rowsum")
 
+# apply a fn to not null items of a row
 fn_at_not_null.spam<-function(A,num_row,funct){
 	return(funct(A@entries[A@rowpointers[num_row]:A@rowpointers[num_row+1]]));
 }
@@ -2709,7 +2710,8 @@ fit.spatautocorel<-function(db=NULL,
 			    use.v=TRUE,
 			    cofactors=NULL,
 			    save.fields=FALSE,
-			    fit.OgivP=FALSE
+			    fit.OgivP=FALSE,
+			    dist_mat=NULL
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -3198,23 +3200,24 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }
 
     # update "r" the spatial component and/or non-spatial noise 
+    centeredy<-y-intercept
     if(use.spat){ # spatial component
       if(use.v){ # local error
 	if(fit.spatstruct){
-	  x <- samplexuv(dimension,Q,K,y-wnotr,cholR);
+	  x <- samplexuv(dimension,Q,K,centeredy-wnotr,cholR);
 
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
-	  x <- fastsamplexuv(dimension,cholR,y-wnotr);
+	  x <- fastsamplexuv(dimension,cholR,centeredy-wnotr);
 	}
 	u<-x[1:dimension];
 	v<-x[dimension+(1:dimension)]-u;
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
-	u<-sample_u(dimension,Q,K,y-wnotr,cholQ);
+	u<-sample_u(dimension,Q,K,centeredy-wnotr,cholQ);
 	wnoc<-u
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
@@ -3225,7 +3228,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }else{ # no spatial component
       if(use.v){ # local error
 	u<-0*w
-	v<-sample_v(y-wnotr,Kv)
+	v<-sample_v(centeredy-wnotr,Kv)
 	Kv<-sampleKv(v,Kvshape,Kvscale)
 	wnoc<-v
       }else{ # no local error
@@ -3234,7 +3237,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }
 
     if(use.cofactors){
-      c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc,y,zNA);
+      c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc,centeredy,zNA);
       c.val<-c.all[[1]]
       c.comp<-c.all[[2]]
       wnotr<-c.comp
@@ -3242,7 +3245,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }else{
       wnotr<-0*w
     }
-    w<-wnoc+wnotr
+    w<-wnoc+wnotr+intercept
 
   if(fit.spatstruct){
     LLHu<-llh.ugivQ(dimension,u,Q,Ku,cholQ=cholQ) 
@@ -3266,6 +3269,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }
   }
 
+  # update inspectors sensitivity
   if(use.insp){
     beta <- samplebeta(zpos,zneg,inspector,yprime,abeta,bbeta);
     bivect <- as.vector(inspector %*% beta);
