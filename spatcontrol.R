@@ -2822,10 +2822,10 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Account for non-observed points:",use.NA,mes,"\n") 
 
-  if(!is.null(db$p.i)){
-    intercept <- qnorm(mean(db$p.i))
+  if(is.null(muPrior)){
+    intercept <- qnorm(mean(db$positive[db$observed==1]))
   }else{
-    intercept <- 0
+    intercept <- muPrior
   }
   dimension <- nrow(db);
   db$status<-rep(0,dim(db)[1])
