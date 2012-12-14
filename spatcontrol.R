@@ -1210,7 +1210,7 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
 			}
 			cat("Opening rate:",pOpen,"\n")
 		}else{
-			cat("Opening independant from infestation")
+			cat("Opening independent from infestation")
 			pOpen<-sum(db$observed==1)/length(db$observed)
 		}
 		if(!is.null(pOpen)){
@@ -1889,7 +1889,7 @@ Geweke.Diagnostic <- function (db,frac1=0.1,frac2=0.5) {
     }
     v0 <- numeric(ncol(yy))
     for (j in 1:ncol(yy)) {
-      cat("Gew:",names(db)[j],"\n")
+      # cat("Gew:",names(db)[j],"\n")
       zz <- yy[, j]
       zz<-zz[which(is.finite(zz))]
       if (var(zz) == 0) {
@@ -2827,6 +2827,7 @@ fit.spatautocorel<-function(db=NULL,
   }else{
     intercept <- muPrior
   }
+  cat("Intercept:",intercept,"\n")
   dimension <- nrow(db);
   db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
@@ -3243,24 +3244,23 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }
 
     # update "r" the spatial component and/or non-spatial noise 
-    centeredy<-y-intercept
     if(use.spat){ # spatial component
       if(use.v){ # local error
 	if(fit.spatstruct){
-	  x <- samplexuv(dimension,Q,K,centeredy-wnotr,cholR);
+	  x <- samplexuv(dimension,Q,K,y-wnotr-intercept,cholR);
 
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
-	  x <- fastsamplexuv(dimension,cholR,centeredy-wnotr);
+	  x <- fastsamplexuv(dimension,cholR,y-wnotr-intercept);
 	}
 	u<-x[1:dimension];
 	v<-x[dimension+(1:dimension)]-u;
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
-	u<-sample_u(dimension,Q,K,centeredy-wnotr,cholQ);
+	u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ);
 	wnoc<-u
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
@@ -3271,7 +3271,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }else{ # no spatial component
       if(use.v){ # local error
 	u<-0*w
-	v<-sample_v(centeredy-wnotr,Kv)
+	v<-sample_v(y-wnotr-intercept,Kv)
 	Kv<-sampleKv(v,Kvshape,Kvscale)
 	wnoc<-v
       }else{ # no local error
@@ -3280,7 +3280,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }
 
     if(use.cofactors){
-      c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc,centeredy,zNA);
+      c.all<-mhsamplec(c.val,c.comp,c.map,sdc.val,Kc,wnoc+intercept,y,zNA);
       c.val<-c.all[[1]]
       c.comp<-c.all[[2]]
       wnotr<-c.comp
