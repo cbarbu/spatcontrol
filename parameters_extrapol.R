@@ -30,6 +30,12 @@ Tprior<-1; # prior on barriers expected is no barrier effect (1)
 sdlT<-2; # prior deviation on log scale (2=>wide spectrum of possibilities for the barrier effect)
 logsdTprop<-0.1 # initial log sd for proposal
 
+muPrior<-0 # 0: prior at 0.5 proba of +, usually not realistic
+	   # but ok for the streets article
+	   # can be set to anything in ]-Inf;+Inf[
+	   # if set to NULL will default to the mu
+           # corresponding to the rate of + in the observed
+
 Kushape <- 0.001; Kuscale <- 1000; # parameter of Ku prior
 
 epsilon <- 0.01 # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.

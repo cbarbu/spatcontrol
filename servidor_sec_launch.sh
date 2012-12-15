@@ -36,7 +36,6 @@ ssh -n -f $ipServidor "sh -c 'cd $shortFolderExec ; nohup spatcontrol/sec_launch
 
 sleep 2
 
-echo "Puede checkar como va el calculo directamente en servidor o con:"
-agara_output_servidor.sh
+echo "Puede checkar como va el calculo directamente en servidor o con:agara_output_servidor.sh
 "
 
