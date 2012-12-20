@@ -67,6 +67,20 @@ rbind.general<-function(d1,d2){
 	uniond1d2<-rbind(d1d2$d1,d1d2$d2)
 	return(uniond1d2)
 }
+# unify "colName.x" and "colName.y" in a "colName"
+# colName: name of the column without .x/.y extension
+# db: database (dataframe)
+# unifun: function to apply to the two initial columns to get the new one, default mean
+unify_column<-function(colName,db,unifun=mean,
+		colNameA=paste(colName,".x",sep=""),
+		colNameB=paste(colName,".y",sep="")){
+	colNameB=paste(colName,".y",sep="")
+	db[[colName]]<-apply(cbind(db[[colNameA]],db[[colNameB]]),1,unifun,na.rm=TRUE)
+	db<-db[,-which(names(db) %in% c(colNameA,colNameB))]
+	return(db)
+}
+
+
 
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
