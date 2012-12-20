@@ -65,17 +65,17 @@ getFactorsHomogeneous<-function(d1,d2){
 # return all the lines presenting a somewhere duplicated item
 # (duplicated don't return the first of duplicated items)
 dup.all<-function(vect){
+	if(!is.null(dim(vect))){
+		vect<-pasteCols(t(vect),sep="_")
+	}
 	linesDuplicates<-which(duplicated(vect)) # every non first version of the duplicate
 
-	if(is.null(dim(vect))){
-		dupItems<-unique(vect[linesDuplicates])# duplicated items
-	}else{
-		dupItems<-unique(vect[linesDuplicates,])# duplicated items
-	}
+	dupItems<-unique(vect[linesDuplicates])# duplicated items
 	linesAllDuplicates<-which(vect %in% dupItems)
 
 	return(linesAllDuplicates)
 }
+
 # junta dos dataframe para todas las columnas de mismo nombre
 # cuidando de los factores
 rbind.general<-function(d1,d2){
