@@ -161,7 +161,6 @@ lsos <- function(..., n=10) {
 
 LL.to.our.utms<-function(coord,utmZone=NULL,addSouth=10000000){
 
-
 	# only try to convert not NAs
  	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
  	coordDefined<-coord[sel,] 
@@ -583,10 +582,10 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 # plot.classes(db$X,db$Y,db$GroupNum)
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
-plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,...){
+plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
 	names(toPlot)[1]<-"ID"
-	colPalette<-class.colors(toPlot$ID)
+	colPalette<-class.colors(toPlot$ID,colVect)
 	indiceOfID<-match(ID,toPlot$ID)
 
 	if(plot.points && !add){
@@ -3101,52 +3100,65 @@ if(use.cofactors){
 }
 LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
 
+sumSBshares<-rep(0,length(w))
+kernSB<-kern(1,SBdist,f)
+kernAS<-kern(T,ASdist,f)
+kernASnoT<-kern(1,ASdist,f)
+SBweights<-apply_by_row_not_null.spam(kernSB,sum,na.rm=TRUE)
+ASweights<-apply_by_row_not_null.spam(kernAS,sum,na.rm=TRUE)
+ASweightsNoT<-apply_by_row_not_null.spam(kernASnoT,sum,na.rm=TRUE)
+SBshares<-SBweights/(ASweights+SBweights)
+SBsharesNoT<-SBweights/(ASweightsNoT+SBweights)
+meanSBshare<-mean(SBshares,na.rm=TRUE)
+meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
+sumSBshares<-sumSBshares+SBshares
+#
+
 ## save starting values
 nbtraced=21;
 poi<-poni<-1-length(zNA)/dim(db)[1]
-if(fit.spatstruct){
-	sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
-	sampled[1,1]<-T;
-	sampled[1,2]<-LLHu
-	sampled[1,3]<-f;
-	sampled[1,4]<-LLHu
-	sampled[1,5]<-Ku;
-	sampled[1,6]<-llh.zgivy(y,zpos,zneg,bivect);
-	sampled[1,7]<-LLH;
-	sampled[1,8]<-llh.ygivw(y,w);
-	sampled[1,9]<-0
-	sampled[1,10]<-Kv;
-	sampled[1,11]<-mean(u);
-	sampled[1,12]<-Kc;
-	sampled[1,13]<-LLHv;
-	sampled[1,14]<-LLHc;
-	sampled[1,15]<-LLHb;
-	sampled[1,16]<-0;
-	sampled[1,17]<-0
-	sampled[1,18]<-0
-	sampled[1,19]<-mean(beta);
-	sampled[1,20]<-poi;
-	sampled[1,21]<-poni;
-	namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
-	
-}else{
-	grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
-	nbtraced<-2*(2+length(grid.stab))+4
-	spacer<-(2+length(grid.stab))
+sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
+sampled[1,1]<-T;
+sampled[1,2]<-LLHu
+sampled[1,3]<-f;
+sampled[1,4]<-LLHu
+sampled[1,5]<-Ku;
+sampled[1,6]<-llh.zgivy(y,zpos,zneg,bivect);
+sampled[1,7]<-LLH;
+sampled[1,8]<-llh.ygivw(y,w);
+sampled[1,9]<-0
+sampled[1,10]<-Kv;
+sampled[1,11]<-mean(u);
+sampled[1,12]<-Kc;
+sampled[1,13]<-LLHv;
+sampled[1,14]<-LLHc;
+sampled[1,15]<-LLHb;
+sampled[1,16]<-0;
+sampled[1,17]<-0
+sampled[1,18]<-0
+sampled[1,19]<-mean(beta);
+sampled[1,20]<-poi;
+sampled[1,21]<-poni;
+namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
 
-	sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
-	sampled[1,1]<-mean(u)
-	sampled[1,2]<-sd(u)
-	sampled[1,3:spacer]<-u[grid.stab]
-	sampled[1,spacer+1]<-mean(w)
-	sampled[1,spacer+2]<-sd(w)
-	sampled[1,(spacer+3):(2*spacer)]<-w[grid.stab]
-	LLHu<-llh.ugivQ(dimension,u,Q,K[1])
-	sampled[1,(2*spacer)+1]<-llh.ugivQ(dimension,u,Q,K[1])
-	sampled[1,(2*spacer)+2]<-llh.ygivw(y,w);
-	sampled[1,(2*spacer)+3]<-llh.zgivy(y,zpos,zneg,bivect);
-	sampled[1,(2*spacer)+4]<-llh.zgivw(w,zpos,zneg,bivect);
-	namesSampled<-c("meanu","sdu",rep("localu",length(grid.stab)),"meanw","sdw",rep("localw",length(grid.stab)),"llhugivQ","llhygivw","llhzgivy","llhzgivw")
+if(!fit.spatstruct){
+grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
+nbtracedField<-2*(2+length(grid.stab))+4
+spacer<-(2+length(grid.stab))
+
+sampledField<-as.matrix(mat.or.vec(nbiterations+1,nbtracedField));
+sampledField[1,1]<-mean(u)
+sampledField[1,2]<-sd(u)
+sampledField[1,3:spacer]<-u[grid.stab]
+sampledField[1,spacer+1]<-mean(w)
+sampledField[1,spacer+2]<-sd(w)
+sampledField[1,(spacer+3):(2*spacer)]<-w[grid.stab]
+LLHu<-llh.ugivQ(dimension,u,Q,K[1])
+sampledField[1,(2*spacer)+1]<-llh.ugivQ(dimension,u,Q,K[1])
+sampledField[1,(2*spacer)+2]<-llh.ygivw(y,w);
+sampledField[1,(2*spacer)+3]<-llh.zgivy(y,zpos,zneg,bivect);
+sampledField[1,(2*spacer)+4]<-llh.zgivw(w,zpos,zneg,bivect);
+namesSampledField<-c("meanu","sdu",rep("localu",length(grid.stab)),"meanw","sdw",rep("localw",length(grid.stab)),"llhugivQ","llhygivw","llhzgivy","llhzgivw")
 }
 if(length(namesSampled)!=nbtraced){
   stop("Number of names in sampled != number of columns")
@@ -3369,6 +3381,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	lastAdaptProp<-num.simul;
 	nbiterations<-lastAdaptProp+ItTestNum;
 	sampled<-resized(sampled,nr=nbiterations+1);
+	if(!fit.spatstruct){
+		sampledField<-resized(sampledField,nr=nbiterations+1);
+	}
 	if(use.cofactors){
 	  c.valsamp<-resized(c.valsamp,nr=nbiterations+1)
 	}
@@ -3378,6 +3393,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(nbiterations<num.simul+1 && final.run){
 	nbiterations<-num.simul+ItTestNum
 	sampled<-resized(sampled,nr=nbiterations+1)
+	if(!fit.spatstruct){
+	sampledField<-resized(sampledField,nr=nbiterations+1)
+	}
 	if(use.cofactors){
 	  c.valsamp<-resized(c.valsamp,nr=nbiterations+1)
 	}
@@ -3414,11 +3432,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
   sumSBshares<-sumSBshares+SBshares
   # cat("mean SB share:",meanSBshare,"w/o barriers would be:",meanSBshareNoT)
-  }else{
   }
 
   ## monitored variables
-  if(fit.spatstruct){
     sampled[num.simul+1,1]<-T;
     sampled[num.simul+1,2]<-LLHu;
     sampled[num.simul+1,3]<-f;
@@ -3440,18 +3456,19 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,19]<-mean(beta);
     sampled[num.simul+1,20]<-poi;
     sampled[num.simul+1,21]<-poni;
-  }else{
-    sampled[num.simul+1,1]<-mean(u)
-    sampled[num.simul+1,2]<-sd(u)
-    sampled[num.simul+1,3:spacer]<-u[grid.stab]
-    sampled[num.simul+1,spacer+1]<-mean(w)
-    sampled[num.simul+1,spacer+2]<-sd(w)
-    sampled[num.simul+1,(spacer+3):(2*spacer)]<-w[grid.stab]
-    sampled[num.simul+1,(2*spacer)+1]<-LLHu
-    sampled[num.simul+1,(2*spacer)+2]<-LLHyw;
-    sampled[num.simul+1,(2*spacer)+3]<-LLHy;
-    sampled[num.simul+1,(2*spacer)+4]<-LLH;
-  }
+
+    if(!fit.spatstruct){
+	    sampledField[num.simul+1,1]<-mean(u)
+	    sampledField[num.simul+1,2]<-sd(u)
+	    sampledField[num.simul+1,3:spacer]<-u[grid.stab]
+	    sampledField[num.simul+1,spacer+1]<-mean(w)
+	    sampledField[num.simul+1,spacer+2]<-sd(w)
+	    sampledField[num.simul+1,(spacer+3):(2*spacer)]<-w[grid.stab]
+	    sampledField[num.simul+1,(2*spacer)+1]<-LLHu
+	    sampledField[num.simul+1,(2*spacer)+2]<-LLHyw;
+	    sampledField[num.simul+1,(2*spacer)+3]<-LLHy;
+	    sampledField[num.simul+1,(2*spacer)+4]<-LLH;
+    }
   if(use.cofactors){
     c.valsamp[num.simul+1,]<-c.val
   }
@@ -3459,7 +3476,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   if((num.simul==ItTestNum+lastAdaptProp && num.simul>lastAdaptProp +1 && final.run)){
     # accommodate for limited length acceptable by gibbsit
     KthinAcc<-ceiling(num.simul/45000)
+  if(fit.spatstruct){
     cb<-cb.diag(sampled[(1+lastAdaptProp):num.simul,-9],logfile="convergence_tests.txt",KthinInit=KthinAcc);
+  }else{
+    cb<-cb.diag(sampledField[(1+lastAdaptProp):num.simul,-9],logfile="convergence_tests.txt",KthinInit=KthinAcc);
+  }
     Kthin<-cb$Kthin*KthinAcc
     lastBurnIn<-cb$burnIn+lastAdaptProp
     ItTestNum<-min(cb$newNbIt,num.simul*3);
@@ -3467,6 +3488,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       nbiterations<-ItTestNum+lastAdaptProp;
       if(!cb$ok){
 	sampled<-resized(sampled,nr=nbiterations+1);
+      if(!fit.spatstruct){
+	sampledField<-resized(sampledField,nr=nbiterations+1);
+      }
 	if(use.cofactors){
 	  c.valsamp<-resized(c.valsamp,nr=nbiterations+1)
 	}
