@@ -618,16 +618,16 @@ plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TR
 	indiceOfID<-match(ID,toPlot$ID)
 
 	if(plot.points && !add){
-		plot(db$X,db$Y,asp=asp,pch=pch,cex=0.2,col=colPalette[indiceOfID],...)
+		plot(X,Y,asp=asp,pch=pch,cex=0.2,col=colPalette[indiceOfID],...)
 	}else if(plot.points && add){
 		if(col.points){
 			col<-colPalette[indiceOfID]
 		}else{
 			col<-"black"
 		}
-		lines(db$X,db$Y,pch=pch,cex=0.2,col=col,type="p",...)
+		lines(X,Y,pch=pch,cex=0.2,col=col,type="p",...)
 	}else if(!plot.points && !add){
-		plot(range(db$X),range(db$Y),asp=asp,type="n",...)
+		plot(range(X),range(Y),asp=asp,type="n",...)
 	}
 
 	if(!col.text){
