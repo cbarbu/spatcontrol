@@ -17,14 +17,20 @@
 #       CREATED:  12/08/2012 09:47:39 AM PET
 #      REVISION:  ---
 #===============================================================================
-
-ipServidor="192.168.1.2"
+ 
+echo $1 $2
+# ipServidor="servidor.chirimachas.com"
+if [[ "$2" == "" ]] ; then
+	ipServidor="192.168.1.2"
+else
+	ipServidor="$2"
+fi
 folderExec="$PWD"
 shortFolderExec="$(basename $PWD)"
 fileExec="$1"
 
-echo "Copiando \n $folderExec \n en $ipServidor:$shortFolderExec"
-puja_a_servidor.sh $folderExec
+echo -e "Copiando \n $folderExec \n en $ipServidor:$shortFolderExec"
+rsync -rv --exclude '.git' ${folderExec%\/} $ipServidor:.
 echo "Terminado de copiar \n"
 
 echo "Haciendo:
@@ -36,6 +42,7 @@ ssh -n -f $ipServidor "sh -c 'cd $shortFolderExec ; nohup spatcontrol/sec_launch
 
 sleep 2
 
-echo "Puede checkar como va el calculo directamente en servidor o con:agara_output_servidor.sh
+echo "Puede checkar como va el calculo directamente en servidor o con:
+agara_output_servidor.sh
 "
 
