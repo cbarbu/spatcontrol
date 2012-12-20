@@ -11,6 +11,9 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
+
+source("project_specific.R")
+
 compilLoad<-function(sourcef){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
@@ -59,6 +62,20 @@ getFactorsHomogeneous<-function(d1,d2){
 	}
 	return(list(d1=d1,d2=d2));
 }
+# return all the lines presenting a somewhere duplicated item
+# (duplicated don't return the first of duplicated items)
+dup.all<-function(vect){
+	linesDuplicates<-which(duplicated(vect)) # every non first version of the duplicate
+
+	if(is.null(dim(vect))){
+		dupItems<-unique(vect[linesDuplicates])# duplicated items
+	}else{
+		dupItems<-unique(vect[linesDuplicates,])# duplicated items
+	}
+	linesAllDuplicates<-which(vect %in% dupItems)
+
+	return(linesAllDuplicates)
+}
 # junta dos dataframe para todas las columnas de mismo nombre
 # cuidando de los factores
 rbind.general<-function(d1,d2){
@@ -79,8 +96,6 @@ unify_column<-function(colName,db,unifun=mean,
 	db<-db[,-which(names(db) %in% c(colNameA,colNameB))]
 	return(db)
 }
-
-
 
 set_to<-function(x,init=c("NULL"),final=0){
     # set all in init to final
