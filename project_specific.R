@@ -19,7 +19,7 @@ cleanPDLV<-function(Table){
 # clean unicodes from spaces and lower case
 cleanUnicodes<-function(unicodes){
 	unicodes<-gsub(" ","",unicodes)
-	unicodes<-toupper(bugs$UNICODE)
+	unicodes<-toupper(unicodes)
 	return(unicodes)
 }
 
