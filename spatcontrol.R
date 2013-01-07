@@ -2694,10 +2694,16 @@ samplexuv <- function(dim,Q,K,y,cholR=NULL) {
 	  cholR <- update.spam.chol.NgPeyton(cholR,R);
   }
 
-  center <- backsolve(cholR, forwardsolve(cholR, center));
-  x <- backsolve(cholR,x);
-  x <- x + center;
+  x <- backsolve(cholR, forwardsolve(cholR, center)+x);
+
+  # old version maybe not much slower
+  # center <- backsolve(cholR, forwardsolve(cholR, center));
+  # x <- backsolve(cholR,x);
+  # x <- x + center;
+
   cholR<<-cholR;
+  # print(x[1:5])
+
   return(x);
 }
 
