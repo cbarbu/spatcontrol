@@ -2684,7 +2684,7 @@ mhsamplecbis<-function(c.val,c.comp,c.map,sdc.val,Kc,wnospat,y,zNA,Kv){
 
 	return(list(c.val,c.comp));
 }
-samplexuv <- function(dim,Q,K,y,cholR=NULL) {
+samplexuv <- function(dim,Q,K,y,cholR=NULL){
   x <- rnorm(n=(2*dim), mean=0, sd=1);
   center <- c(rep(0,dim), y);
   R <- makeRuv(dim,Q,K);
@@ -2696,7 +2696,7 @@ samplexuv <- function(dim,Q,K,y,cholR=NULL) {
 
   x <- backsolve(cholR, forwardsolve(cholR, center)+x);
 
-  # old version maybe not much slower
+  # old version may not be slower
   # center <- backsolve(cholR, forwardsolve(cholR, center));
   # x <- backsolve(cholR,x);
   # x <- x + center;
