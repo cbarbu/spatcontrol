@@ -2751,6 +2751,46 @@ sample_v<-function(ynotv,Kv){
   return(v)
 }
 
+## io is the shift parameter for opening houses
+## o is the probability of opening for each house
+## u is the spatial component of infestation for each house
+sample_io <- function(o, u, prior_io_mean = 0, prior_io_var = 2){
+## given o ~ N(u+io, 1) <=> o-u ~ N(io, 1)
+## given io ~ N(prior_io_mean, 2)
+## then io | o ~ N(following)
+
+	meanPost <- (prior_io_mean/prior_io_var + sum(o-u))/(1/prior_io_var + length(o))
+	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
+	io <- rnorm(1, mean=meanPost, sd=sdPost)
+
+	return(io)	
+}
+
+## o is the probability of opening for each house
+## u is the spatial component of infestation for each houses
+## io is the shift parameter same over all the houses
+## oprime is whether the house is opened or closed
+sample_o <- function(oprime, u, io){
+## given o ~ N(u+io, I)
+## given oprime = 1 if o >= 0
+## given oprime = 0 if o < 0
+## then o | io,u,oprime ~ truncNorm(...)
+	
+	posOpen <- which(oprime == 1)
+	negOpen <- which(oprime == 0)
+	
+	o <- 1:length(oprime)
+	o[posOpen] <- rtruncnorm(length(posOpen), a=0, b=Inf, mean=u[posOpen]+io, sd=1)
+	o[negOpen] <- rtruncnorm(length(negOpen), a=-Inf, b=0, mean=u[negOpen]+io, sd=1)
+
+	return(o)
+}
+
+new_sample_u <- function(y, o, io, Ku, Q, prior_u_mean = 0){
+
+
+
+}
 
 samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
 	yp.positive <- yprime;
