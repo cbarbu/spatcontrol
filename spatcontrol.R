@@ -439,6 +439,21 @@ apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	
 	return(results);
 }
+# for each line return the column number of the minimum of not empty cells
+which.min.spam<-function(mat,byrow=TRUE){
+	if(!byrow){
+		mat<-t(mat)
+	}
+	spamMinRef<-apply_by_row_not_null.spam(mat,which.min)
+
+	toFill<-which(!is.na(spamMinRef))
+
+
+	min.refs<-rep(NA,dim(mat)[1])
+	min.refs[toFill]<-(mat@colindices[mat@rowpointers[toFill]+spamMinRef[toFill]-1])
+	
+	return(min.refs)
+}
 
 if(class(importOk)!="try-error"){
 	random_spam_entries_by_row<-function(A){
@@ -2767,8 +2782,7 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
   dist_mat <- nearest.dist(x = priordatafullmap[, c("X", "Y")], 
 			   y = priordatafullmap[reportslines, c("X", "Y")], method = "euclidian", 
 			   delta = threshold, upper = NULL)
-  selectedlines <- which(!is.na(apply_by_row_not_null.spam(dist_mat, 
-							   min)))
+  selectedlines <- which(!is.na(apply_by_row_not_null.spam(dist_mat,min)))
   subprior <- priordatafullmap[selectedlines, ]
   return(subprior)
 }
