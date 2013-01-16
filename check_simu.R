@@ -33,7 +33,7 @@ cat("GMRFpino Model:",
 totalInfPostSpray,"houses infested post spraying")
 cat("Or",naivePostSpray/totalInfPostSpray,"times less\n")
 
-convergence<-cb.diag(betas)
+# convergence<-cb.diag(betas)
 
 
 
