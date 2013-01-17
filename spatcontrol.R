@@ -2340,9 +2340,14 @@ rmvnorm.prec.pseudo <- function (n, mu = rep(0, nrow(Q)), Q, Rstruct = NULL,give
     nu <- backsolve(R, array(given_rnorm, c(N, n)))
     return(t(nu + mu))
 }
-sample_u <- function(dimension,Q,K,y,cholQ=NULL){
+
+sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimension)){
+
+	if(length(prior_u_mean) != dimension)
+		prior_u_mean = rep(prior_u_mean[1], dimension)
+	
 	R <- K[1]*Q+diag.spam(1,dimension);
-	center <- y;
+	center <- y + K[1]*Q*prior_u_mean;
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
 	return(drop(u));
@@ -2787,7 +2792,12 @@ sample_o <- function(oprime, u, io){
 }
 
 new_sample_u <- function(y, o, io, Ku, Q, prior_u_mean = 0){
-
+# given o ~ N(u+io, I) <=> (o - io) ~ N(u, I)
+# given y ~ N(u, I)
+# (o - io) and y can be thought of as 2 repetitions of N(u, I)
+# given u ~ N(prior_u_mean, (Ku*Q)^-1)
+# then u | y, o, io ~ N((Ku*Q + 2I)^-1 * (Ku*Q*prior_u_mean + 2I * (y+(o-io))/2), Ku*Q+2I)
+# where Ku*Q + 2I is the precision matrix of the multivariate normal
 
 
 }
@@ -3361,7 +3371,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	v<-x[dimension+(1:dimension)]-u;
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
-	u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ);
+	u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, mu);
 	wnoc<-u
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
