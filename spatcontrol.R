@@ -42,6 +42,13 @@ if(class(importOk)=="try-error"){
 #===============================
 # General purpose functions
 #===============================
+
+signedLog<-function(signedBigNums){
+      signNum<-sign(signedBigNums)
+      signedLog<-log(abs(signedBigNums))*signNum
+      return(signedLog)
+}
+
 count<-function(vect){
 	return(length(which(vect)))
 }
@@ -2347,7 +2354,8 @@ sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimensio
 		prior_u_mean = rep(prior_u_mean[1], dimension)
 	
 	R <- K[1]*Q+diag.spam(1,dimension);
-	center <- y + K[1]*Q*prior_u_mean;
+	center <- y + K[1]*Q%*%prior_u_mean;
+	center <- as.vector(center);
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
 	return(drop(u));
@@ -2791,14 +2799,23 @@ sample_o <- function(oprime, u, io){
 	return(o)
 }
 
-new_sample_u <- function(y, o, io, Ku, Q, prior_u_mean = 0){
+sample_u_with_o <- function(dimension, K, Q, y, o, io, cholQ = NULL, prior_u_mean = 0){
 # given o ~ N(u+io, I) <=> (o - io) ~ N(u, I)
 # given y ~ N(u, I)
 # (o - io) and y can be thought of as 2 repetitions of N(u, I)
-# given u ~ N(prior_u_mean, (Ku*Q)^-1)
-# then u | y, o, io ~ N((Ku*Q + 2I)^-1 * (Ku*Q*prior_u_mean + 2I * (y+(o-io))/2), Ku*Q+2I)
+# given u ~ N(prior_u_mean, (K*Q)^-1)
+# then u | y, o, io ~ N((K*Q + 2I)^-1 * (Ku*Q*prior_u_mean + 2I * (y+(o-io))/2), Ku*Q+2I)
 # where Ku*Q + 2I is the precision matrix of the multivariate normal
 
+	if(length(prior_u_mean) != dimension)
+		prior_u_mean = rep(prior_u_mean[1], dimension)
+	
+	R <- K[1]*Q+diag.spam(2,dimension);
+	center <- diag.spam(2, dimension)%*%((y+o-io)/2) + K[1]*Q%*%prior_u_mean;
+	center <- as.vector(center)
+	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
+	
+	return(drop(u));
 
 }
 
