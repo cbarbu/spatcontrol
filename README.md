@@ -51,3 +51,9 @@ The spatcontrol package is under development at the github repository:
 https://github.com/cbarbu/spatcontrol 
 
 Participation is welcome through forking and pull request in GitHub. The code will at some point be shared in part or fully as a CRAN package.
+
+Todo:
+---------------------------------
+-Set more reasonable priors on io mean, io variance
+-Remove intercept from calculations carefully
+-Figure out where/what muPrior is doing (see parameters_extrapol.R) - and try to remove it (along with removing intercept)
