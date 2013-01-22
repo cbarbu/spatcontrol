@@ -2765,7 +2765,7 @@ sample_v<-function(ynotv,Kv){
 }
 
 ## io is the shift parameter for opening houses
-## o is the probability of opening for each house
+## o is the probit of opening for each house
 ## u is the spatial component of infestation for each house
 sample_io <- function(o, u, prior_io_mean = 0, prior_io_var = 2){
 ## given o ~ N(u+io, 1) <=> o-u ~ N(io, 1)
@@ -2779,7 +2779,7 @@ sample_io <- function(o, u, prior_io_mean = 0, prior_io_var = 2){
 	return(io)	
 }
 
-## o is the probability of opening for each house
+## o is the probit of opening for each house
 ## u is the spatial component of infestation for each houses
 ## io is the shift parameter same over all the houses
 ## oprime is whether the house is opened or closed
@@ -2799,7 +2799,7 @@ sample_o <- function(oprime, u, io){
 	return(o)
 }
 
-sample_u_with_o <- function(dimension, K, Q, y, o, io, cholQ = NULL, prior_u_mean = 0){
+sample_u_with_o <- function(dimension, Q, K, y, o, io, cholQ = NULL, prior_u_mean = 0){
 # given o ~ N(u+io, I) <=> (o - io) ~ N(u, I)
 # given y ~ N(u, I)
 # (o - io) and y can be thought of as 2 repetitions of N(u, I)
@@ -2808,9 +2808,9 @@ sample_u_with_o <- function(dimension, K, Q, y, o, io, cholQ = NULL, prior_u_mea
 # where Ku*Q + 2I is the precision matrix of the multivariate normal
 
 	if(length(prior_u_mean) != dimension)
-		prior_u_mean = rep(prior_u_mean[1], dimension)
+		prior_u_mean <- rep(prior_u_mean[1], dimension)
 	
-	R <- K[1]*Q+diag.spam(2,dimension);
+	R <- K[1]*Q + diag.spam(2,dimension);
 	center <- diag.spam(2, dimension)%*%((y+o-io)/2) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
@@ -3176,6 +3176,13 @@ x <- c(u, w);
   x<-c(u,w)
 }
 
+## initialization of values for opening
+io<-0
+oprime<-rep(1,dimension)
+oprime[zNA]<-0
+o<-rep(1,dimension)
+o[zNA]<-0
+
 
 R <- makeRuv(dimension,Q,K);
 cholR <- chol.spam(R,memory=list(nnzcolindices=300000));
@@ -3231,8 +3238,8 @@ sumSBshares<-sumSBshares+SBshares
 #
 
 ## save starting values
-nbtraced=21;
-poi<-poni<-1-length(zNA)/dim(db)[1]
+nbtraced=22;
+poi<-poni<- (1-length(zNA)/dim(db)[1])
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
 sampled[1,2]<-LLHu
@@ -3255,7 +3262,8 @@ sampled[1,18]<-0
 sampled[1,19]<-mean(beta);
 sampled[1,20]<-poi;
 sampled[1,21]<-poni;
-namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni")
+sampled[1,22]<-io
+namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io")
 
 if(!fit.spatstruct){
 grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -3287,6 +3295,7 @@ lastsaved<-1
 if(save.fields){
 	write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
 	write.table(t(w), "wsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
+	write.table(t(o), "osamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 }
 write.table(t(as.numeric(y>0)), "ypsamples.txt", sep="\t",col.names=FALSE,row.names=FALSE)
 if(use.cofactors){
@@ -3361,7 +3370,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
 
-    if(fit.OgivP){
+    if(fit.OgivP=="linear"){
 	    nInfOpen<-length(which(yprime & openned))
 	    nInfNotOpen<-length(which(yprime & ! openned))
 	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
@@ -3369,11 +3378,15 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfOpen<-length(which(!yprime & openned))
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+    }else if(fit.OgivP=="probit"){
+	io<-sample_io(o,u,prior.io.mean,prior.io.var)
+	o<-sample_o(oprime,u,io)
     }
 
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
       if(use.v){ # local error
+	if(fit.OgivP == "probit") stop("Not implemented yet")
 	if(fit.spatstruct){
 	  x <- samplexuv(dimension,Q,K,y-wnotr-intercept,cholR);
 
@@ -3388,7 +3401,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	v<-x[dimension+(1:dimension)]-u;
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
-	u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, mu);
+	if(fit.OgivP == "probit"){
+	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io,cholQ=cholQ,prior_u_mean=mu)
+	}else{
+	  u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, mu);
+	}
 	wnoc<-u
 	if(fit.spatstruct){
 	  Ku<-sampleKu(dimension,Q,u,Kushape,Kuscale); 
@@ -3572,6 +3589,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,19]<-mean(beta);
     sampled[num.simul+1,20]<-poi;
     sampled[num.simul+1,21]<-poni;
+    sampled[num.simul+1,22]<-io;
 
     if(!fit.spatstruct){
 	    sampledField[num.simul+1,1]<-mean(u)
@@ -3623,6 +3641,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  if(save.fields){
 		  write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 		  write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+		  write.table(t(o), "osamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 	  }
     write.table(t(as.numeric(yprime)), "ypsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE)
 
