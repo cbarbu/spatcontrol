@@ -186,6 +186,28 @@ resized<-function(A,nr=nrow(A),nc=ncol(A)){
   out
 }
 
+## given a file name, typically ypsamples.txt, usamples.txt, osamples.txt, etc
+## read the max lines (or all lines if nblines < max) of the file
+## and make a fields matrix
+getField<-function(filename, maxlines = 1000){
+        nblinesString<-system(paste("wc -l ",filename,sep=""),intern=TRUE)
+        nblinesTable<-strsplit(nblinesString,split=" +")[[1]]
+        nonVoid<-which(nzchar(nblinesTable))[1]
+        nblines<-as.integer(nblinesTable[nonVoid[1]])
+        cat("initially",nblines,"lines\n")
+
+        skiped<-floor(nblines/2);
+
+        nblinesread<-min(maxlines,nblines-skiped);
+        # nblinesread<-nblines-skiped;
+        cat("going to import",nblinesread,"lines beginning at",skiped,"...")
+        fields<-scan(filename,skip=skiped,sep="\t",nlines=nblinesread); # can take some time (15s of for 750 lignes skipping 750 lines
+        cat("Imported\n")
+        fields<-matrix(fields,nrow=nblinesread,byrow=TRUE)
+
+        return(fields)
+}
+
 # shorthand
 lsos <- function(..., n=10) {
   .ls.objects(..., order.by="Size", decreasing=TRUE, head=TRUE, n=n)
@@ -2165,13 +2187,18 @@ meansdlognorm2meansd <-function(meanlog=meanlog,sdlog=NA){
 # 
 # cat("fprior",fprior,"back",fparam$mean,"sdfprior:",sdfprior,"back:",fparam$sd)
 
-makeRuv <- function(dim,Q,K) {
+# this returns the R = (nbsample * t(A) %*% A + R')
+# where R' (R_prime) is 
+# [Ku*Q + Kv*I , -Kv*I  ]
+# [-Kv*I       ,  Kv*I  ]
+# can get R_prime by setting nbsample = 0
+makeRuv <- function(dim,Q,K, nbsample = 1) {
   Ku <- K[1];
   Kv <- K[2];
   R <- Ku*Q;
   diag.spam(R) <- diag.spam(R) + Kv;
   R <- cbind(R, diag.spam(-1*Kv,dim,dim));
-  R <- rbind(R, cbind(diag.spam(-1*Kv,dim,dim), diag.spam((Kv+1), dim, dim)));
+  R <- rbind(R, cbind(diag.spam(-1*Kv,dim,dim), diag.spam((Kv+nbsample), dim, dim)));
   return(R);
 }
 
@@ -2735,6 +2762,34 @@ samplexuv <- function(dim,Q,K,y,cholR=NULL){
   return(x);
 }
 
+# sample x given y and prior_u_mean
+# if y has more than one realization,
+# nbsample = number of realizations
+samplexuv_with_prior_u <- function(dim, Q, K, y, nbsample = 1, prior_u_mean = 0, cholR = NULL){
+	x <- rnorm(n=(2*dim), mean=0, sd=1)
+
+	R_prime <- makeRuv(dim, Q, K, nbsample = 0)
+	R_prime <<- R_prime
+
+	center <- R_prime %*% rep(prior_u_mean[1], 2*dim) +  c(rep(0, dim), y) 
+
+	# add 2*t(A)%*%A to R
+	R <- R_prime
+	diag.spam(R) <- diag.spam(R) + c(rep(0, dim), rep(nbsample, dim))	
+
+	if(is.null(cholR)){
+		cholR <- chol.spam(R, memory=list(nnzcolindices=4e6))
+	}else{
+		cholR <- update.spam.chol.NgPeyton(cholR, R)
+	}
+
+	x <- backsolve(cholR, forwardsolve(cholR, center)+x)
+
+	cholR<<-cholR
+
+	return(x)	
+}
+
 fastsamplexuv <- function(dim,cholR,y) {
   x <- rnorm(n=(2*dim), mean=0, sd=1);
   center <- c(rep(0,dim), y);
@@ -2742,6 +2797,15 @@ fastsamplexuv <- function(dim,cholR,y) {
   x <- backsolve(cholR,x);
   x <- x + center;
   return(x);
+}
+
+# need to pass R_prime to accomodate for prior_u_mean
+# R_prime must have nbsample = 0
+fastsamplexuv_with_prior_u <- function(dim, cholR, R_prime, y, prior_u_mean = 0){
+	x <- rnorm(n=(2*dim), mean=0, sd=1)
+	center <- R_prime %*% rep(prior_u_mean[1], 2*dim) +  c(rep(0, dim), y) 
+	x <- backsolve(cholR, forwardsolve(cholR, center)+x)
+	return(x)		
 }
 
 sample_w_nospat<-function(y,c,Kv){
@@ -2799,6 +2863,8 @@ sample_o <- function(oprime, u, io){
 	return(o)
 }
 
+# can adapt sample_u_with_o to not take o (if passed two realizations of y)
+# see samplexuv_with_prior_u
 sample_u_with_o <- function(dimension, Q, K, y, o, io, cholQ = NULL, prior_u_mean = 0){
 # given o ~ N(u+io, I) <=> (o - io) ~ N(u, I)
 # given y ~ N(u, I)
@@ -2937,10 +3003,13 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Account for non-observed points:",use.NA,mes,"\n") 
 
+  # given that we set the prior in a clean way in sample_u directly, 
+  # the intercept is fixed to 0
+  intercept <- 0
   if(is.null(muPrior)){
-    intercept <- qnorm(mean(db$positive[db$observed==1]))
+	muPrior <- qnorm(mean(db$positive[db$observed==1]))
   }else{
-    intercept <- muPrior
+    	# intercept <- muPrior
   }
   cat("Intercept:",intercept,"\n")
   dimension <- nrow(db);
@@ -3016,7 +3085,9 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Fit autocorrelation structure:",fit.spatstruct)
   if(!fit.spatstruct){
-	  cat(" (f=",f,";T=",T,";Ku=",Ku,";Kv=",Kv,")\n",sep="");
+	  cat(" (f=",f,";T=",T,";Ku=",Ku,sep="")
+	  if (use.v) cat(";Kv=",Kv,sep="")
+	  cat(")\n",sep="");
   }
 
   cat("Account for local noise:",use.v,"\n")
@@ -3183,8 +3254,13 @@ oprime[zNA]<-0
 o<-rep(1,dimension)
 o[zNA]<-0
 
-
-R <- makeRuv(dimension,Q,K);
+# initialize R, cholR, R_prime
+R_prime <- makeRuv(dimension,Q,K, nbsample = 0);
+if(fit.OgivP == "probit"){
+R <- makeRuv(dimension, Q, K, nbsample = 2)
+} else{
+R <- makeRuv(dimension, Q, K, nbsample = 1)
+}
 cholR <- chol.spam(R,memory=list(nnzcolindices=300000));
 
 if(use.cofactors){
@@ -3386,25 +3462,36 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
       if(use.v){ # local error
-	if(fit.OgivP == "probit") stop("Not implemented yet")
 	if(fit.spatstruct){
-	  x <- samplexuv(dimension,Q,K,y-wnotr-intercept,cholR);
+	 if(fit.OgivP == "probit"){
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+o-io, nbsample=2, prior_u_mean=muPrior, cholR=cholR);
+	 }else{
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
+	   
+	   # previous code statement for samplexuv (now use samplexuv_with_prior_u)
+	   #x <- samplexuv(dimension,Q,K,y-wnotr-intercept,cholR);
+	 }
 
 	  K <- sampleK(dimension,Q,x,K.hyper);
 	  Ku<-K[[1]]
 	  Kv<-K[[2]];
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
-	  x <- fastsamplexuv(dimension,cholR,y-wnotr-intercept);
+		
+	 if(fit.OgivP == "probit"){
+	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+o-io, prior_u_mean=muPrior);
+	 }else{	
+	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
+	 }
 	}
 	u<-x[1:dimension];
 	v<-x[dimension+(1:dimension)]-u;
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
 	if(fit.OgivP == "probit"){
-	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io,cholQ=cholQ,prior_u_mean=mu)
+	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io,cholQ=cholQ,prior_u_mean=muPrior)
 	}else{
-	  u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, mu);
+	  u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, muPrior);
 	}
 	wnoc<-u
 	if(fit.spatstruct){
