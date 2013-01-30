@@ -190,6 +190,7 @@ resized<-function(A,nr=nrow(A),nc=ncol(A)){
 ## read the max lines (or all lines if nblines < max) of the file
 ## and make a fields matrix
 getField<-function(filename, maxlines = 1000){
+	if(file.exists(filename)){
         nblinesString<-system(paste("wc -l ",filename,sep=""),intern=TRUE)
         nblinesTable<-strsplit(nblinesString,split=" +")[[1]]
         nonVoid<-which(nzchar(nblinesTable))[1]
@@ -204,6 +205,10 @@ getField<-function(filename, maxlines = 1000){
         fields<-scan(filename,skip=skiped,sep="\t",nlines=nblinesread); # can take some time (15s of for 750 lignes skipping 750 lines
         cat("Imported\n")
         fields<-matrix(fields,nrow=nblinesread,byrow=TRUE)
+	}else{
+		warning(filename,"doesn't exist.")
+		fields<- NULL
+	}
 
         return(fields)
 }
@@ -2837,11 +2842,13 @@ sample_io <- function(o, w, fo = 1, prior_io_mean = 0, prior_io_var = 2){
 ## given o ~ N(fo*w+io, 1) <=> o-fo*w ~ N(io, 1)
 ## then io | o, fo, w ~ N(following)
 
+	# cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
 	meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))/(1/prior_io_var + length(o))
 	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
+	# print(summary(sdPost))
 	io <- rnorm(1, mean=meanPost, sd=sdPost)
 
-	return(io)	
+	return(io)
 }
 
 ## o is the probit of opening for each house
@@ -2870,7 +2877,7 @@ sample_o <- function(oprime, w, io, fo=1){
 sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior_u_mean = 0){
 # given o ~ N(fo*u+io, I) <=> (o - io) ~ N(fo*u, I)
 # given y ~ N(u, I)
-# (o - io) and y can be thought of as 2 repetitions of N(u, I)
+# fo*(o - io) and y can be thought of as 2 (or more accurately 1+fo) repetitions of N(u, I)
 # given u ~ N(prior_u_mean, (K*Q)^-1)
 # then u | y, o, io, fo ~ N((K*Q + (1+fo)I)^-1 * (K*Q*prior_u_mean + I * (y+fo(o-io))), K*Q+(1+fo)I)
 # where [K*Q + (1+fo)I] is the precision matrix of the multivariate normal
@@ -2891,15 +2898,52 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # io is the shift parameter (same over all houses)
 # w is the spatial component of infestation over all houses (may include error term)
 sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
-	
-	varPost <- t(w)%*%w + 1/prior_fo_var
+
+	## Added in ^-1 as instructed by CB	
+	varPost <- (t(w)%*%w + 1/prior_fo_var)^-1
 	sdPost <- sqrt(varPost)
-	meanPost <- (2*t(w)%*%(o-io) + 2*prior_fo_mean/prior_fo_var)/varPost
+	meanPost <- (t(w)%*%(o-io) + prior_fo_mean/prior_fo_var)*varPost
 
 	fo <- rnorm(1, mean=meanPost, sd=sdPost)
 	return(fo)
 
 } 
+
+## metropolis hastings sample fo given:
+## fo ~ N(prior_fo_mean, prior_fo_var)
+## o ~ N(fo*w + io, 1)
+metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, sdprop = 0.4){
+
+  # old param
+  old<-fo
+
+  # get LLH for old
+  LLHold <- sum(dnorm(o, mean=old*w+io, sd=1, log=TRUE))
+  LLHold <- LLH + dnorm(old, mean=prior_fo_mean, sd=sqrt(prior_fo_var), log=TRUE) #add prior to LLHold	 
+
+  # sample proposal
+  prop<-rnorm(1,mean=old,sd=sdprop);
+
+  # get LLH for proposal
+  LLHprop <- sum(dnorm(o, mean=prop*w+io, sd=1, log=TRUE))
+  LLHprop <- LLHprop + dnorm(prop, mean=prior_fo_mean, sd=sqrt(prior_fo_var), log=TRUE) #add prior to LLHprop
+
+  # accept/reject
+  # always 0 for symmetric distribution, only for record
+  hasting_term<-dnorm(old,prop,sdprop,log=TRUE)-dnorm(prop,old,sdprop,log=TRUE);
+
+  lnr <- LLHprop-LLHold+hasting_term;
+  # cat("otheta:",oldTheta,"ptheta",propTheta,"lnr:",lnr,"(",LLHprop,"-",LLHold,"+",hasting_term);
+
+  # if likeihood ratio > random, accept - else, reject 
+  if(lnr>=log(runif(1))) {
+    new <- prop 
+  }else{
+    new <- old
+  }
+
+  return(new)
+}
 
 samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
 	yp.positive <- yprime;
@@ -3474,6 +3518,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
 	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
     }
