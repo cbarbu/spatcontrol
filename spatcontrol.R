@@ -2773,7 +2773,7 @@ samplexuv_with_prior_u <- function(dim, Q, K, y, nbsample = 1, prior_u_mean = 0,
 
 	center <- R_prime %*% rep(prior_u_mean[1], 2*dim) +  c(rep(0, dim), y) 
 
-	# add 2*t(A)%*%A to R
+	# add nbsample*t(A)%*%A to R
 	R <- R_prime
 	diag.spam(R) <- diag.spam(R) + c(rep(0, dim), rep(nbsample, dim))	
 
@@ -2830,13 +2830,14 @@ sample_v<-function(ynotv,Kv){
 
 ## io is the shift parameter for opening houses
 ## o is the probit of opening for each house
-## u is the spatial component of infestation for each house
-sample_io <- function(o, u, prior_io_mean = 0, prior_io_var = 2){
-## given o ~ N(u+io, 1) <=> o-u ~ N(io, 1)
+## w is the probit predictor of infestation for each house
+## fo scales impact of w on o
+sample_io <- function(o, w, fo = 1, prior_io_mean = 0, prior_io_var = 2){
 ## given io ~ N(prior_io_mean, 2)
-## then io | o ~ N(following)
+## given o ~ N(fo*w+io, 1) <=> o-fo*w ~ N(io, 1)
+## then io | o, fo, w ~ N(following)
 
-	meanPost <- (prior_io_mean/prior_io_var + sum(o-u))/(1/prior_io_var + length(o))
+	meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))/(1/prior_io_var + length(o))
 	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
 	io <- rnorm(1, mean=meanPost, sd=sdPost)
 
@@ -2844,46 +2845,61 @@ sample_io <- function(o, u, prior_io_mean = 0, prior_io_var = 2){
 }
 
 ## o is the probit of opening for each house
-## u is the spatial component of infestation for each houses
+## w is the probit predictor of infestation for each houses
 ## io is the shift parameter same over all the houses
 ## oprime is whether the house is opened or closed
-sample_o <- function(oprime, u, io){
-## given o ~ N(u+io, I)
+## fo scales impact of w on o
+sample_o <- function(oprime, w, io, fo=1){
+## given o ~ N(fo*w+io, I)
 ## given oprime = 1 if o >= 0
 ## given oprime = 0 if o < 0
-## then o | io,u,oprime ~ truncNorm(...)
+## then o | io,w,oprime,fo ~ truncNorm(...)
 	
 	posOpen <- which(oprime == 1)
 	negOpen <- which(oprime == 0)
 	
 	o <- 1:length(oprime)
-	o[posOpen] <- rtruncnorm(length(posOpen), a=0, b=Inf, mean=u[posOpen]+io, sd=1)
-	o[negOpen] <- rtruncnorm(length(negOpen), a=-Inf, b=0, mean=u[negOpen]+io, sd=1)
+	o[posOpen] <- rtruncnorm(length(posOpen), a=0, b=Inf, mean=fo*w[posOpen]+io, sd=1)
+	o[negOpen] <- rtruncnorm(length(negOpen), a=-Inf, b=0, mean=fo*w[negOpen]+io, sd=1)
 
 	return(o)
 }
 
 # can adapt sample_u_with_o to not take o (if passed two realizations of y)
 # see samplexuv_with_prior_u
-sample_u_with_o <- function(dimension, Q, K, y, o, io, cholQ = NULL, prior_u_mean = 0){
-# given o ~ N(u+io, I) <=> (o - io) ~ N(u, I)
+sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior_u_mean = 0){
+# given o ~ N(fo*u+io, I) <=> (o - io) ~ N(fo*u, I)
 # given y ~ N(u, I)
 # (o - io) and y can be thought of as 2 repetitions of N(u, I)
 # given u ~ N(prior_u_mean, (K*Q)^-1)
-# then u | y, o, io ~ N((K*Q + 2I)^-1 * (Ku*Q*prior_u_mean + 2I * (y+(o-io))/2), Ku*Q+2I)
-# where Ku*Q + 2I is the precision matrix of the multivariate normal
+# then u | y, o, io, fo ~ N((K*Q + (1+fo)I)^-1 * (K*Q*prior_u_mean + I * (y+fo(o-io))), K*Q+(1+fo)I)
+# where [K*Q + (1+fo)I] is the precision matrix of the multivariate normal
 
 	if(length(prior_u_mean) != dimension)
 		prior_u_mean <- rep(prior_u_mean[1], dimension)
 	
-	R <- K[1]*Q + diag.spam(2,dimension);
-	center <- diag.spam(2, dimension)%*%((y+o-io)/2) + K[1]*Q%*%prior_u_mean;
+	R <- K[1]*Q + diag.spam(1+fo,dimension);
+	center <- diag.spam(1, dimension)%*%(y+fo*(o-io)) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
 	return(drop(u));
 
 }
+
+# o is the probit for opening for each house
+# io is the shift parameter (same over all houses)
+# w is the spatial component of infestation over all houses (may include error term)
+sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
+	
+	varPost <- t(w)%*%w + 1/prior_fo_var
+	sdPost <- sqrt(varPost)
+	meanPost <- (2*t(w)%*%(o-io) + 2*prior_fo_mean/prior_fo_var)/varPost
+
+	fo <- rnorm(1, mean=meanPost, sd=sdPost)
+	return(fo)
+
+} 
 
 samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
 	yp.positive <- yprime;
@@ -3248,16 +3264,17 @@ x <- c(u, w);
 }
 
 ## initialization of values for opening
-io<-0
+io<-prior.io.mean
 oprime<-rep(1,dimension)
 oprime[zNA]<-0
 o<-rep(1,dimension)
 o[zNA]<-0
+fo<- prior.fo.mean
 
 # initialize R, cholR, R_prime
 R_prime <- makeRuv(dimension,Q,K, nbsample = 0);
 if(fit.OgivP == "probit"){
-R <- makeRuv(dimension, Q, K, nbsample = 2)
+R <- makeRuv(dimension, Q, K, nbsample = (1+fo))
 } else{
 R <- makeRuv(dimension, Q, K, nbsample = 1)
 }
@@ -3314,7 +3331,7 @@ sumSBshares<-sumSBshares+SBshares
 #
 
 ## save starting values
-nbtraced=22;
+nbtraced=23;
 poi<-poni<- (1-length(zNA)/dim(db)[1])
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
@@ -3339,7 +3356,8 @@ sampled[1,19]<-mean(beta);
 sampled[1,20]<-poi;
 sampled[1,21]<-poni;
 sampled[1,22]<-io
-namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io")
+sampled[1,23]<-fo
+namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io", "fo")
 
 if(!fit.spatstruct){
 grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -3455,8 +3473,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
-	io<-sample_io(o,u,prior.io.mean,prior.io.var)
-	o<-sample_o(oprime,u,io)
+	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
+	o<-sample_o(oprime,w,io,fo=fo)
     }
 
     # update "r" the spatial component and/or non-spatial noise 
@@ -3464,7 +3483,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(use.v){ # local error
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+o-io, nbsample=2, prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+fo*(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3479,7 +3498,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	}else{
 		
 	 if(fit.OgivP == "probit"){
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+o-io, prior_u_mean=muPrior);
+	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+fo*(o-io), prior_u_mean=muPrior);
 	 }else{	
 	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
@@ -3489,7 +3508,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	wnoc<-x[dimension+(1:dimension)]
       }else{ # no local error
 	if(fit.OgivP == "probit"){
-	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io,cholQ=cholQ,prior_u_mean=muPrior)
+	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io, fo=fo, cholQ=cholQ,prior_u_mean=muPrior)
 	}else{
 	  u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, muPrior);
 	}
@@ -3677,6 +3696,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,20]<-poi;
     sampled[num.simul+1,21]<-poni;
     sampled[num.simul+1,22]<-io;
+    sampled[num.simul+1,23]<-fo;
 
     if(!fit.spatstruct){
 	    sampledField[num.simul+1,1]<-mean(u)
