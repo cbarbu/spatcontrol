@@ -35,5 +35,28 @@ cat("Or",naivePostSpray/totalInfPostSpray,"times less\n")
 
 # convergence<-cb.diag(betas)
 
+# field analysis
+dev.new()
+par(mfrow=c(2,2))
+plot_reel(dbFitted$X,dbFitted$Y,2*dbFitted$positive+(1-dbFitted$observed),base=0,top=2,main="Data")
+us<-getField("usamples.txt")
+if(!is.null(us)){
+umean<-apply(us,2,mean)
+plot_reel(dbFitted$X,dbFitted$Y,umean,base=-2,top=2,main="u mean")
+}
+
+yps<-getField("ypsamples.txt")
+if(!is.null(yps)){
+ypmean<-apply(yps,2,mean)
+plot_reel(dbFitted$X,dbFitted$Y,ypmean,base=0,top=1,main="yp mean")
+}
+
+os<-getField("osamples.txt")
+if(!is.null(os)){
+omean<-apply(os,2,mean)
+plot_reel(dbFitted$X,dbFitted$Y,omean,base=-2,top=2,main="o mean")
+}
+
+
 
 
