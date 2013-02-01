@@ -2912,14 +2912,14 @@ sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
 ## metropolis hastings sample fo given:
 ## fo ~ N(prior_fo_mean, prior_fo_var)
 ## o ~ N(fo*w + io, 1)
-metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, sdprop = 0.4){
+metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, sdprop = 0.005){
 
   # old param
   old<-fo
 
   # get LLH for old
   LLHold <- sum(dnorm(o, mean=old*w+io, sd=1, log=TRUE))
-  LLHold <- LLH + dnorm(old, mean=prior_fo_mean, sd=sqrt(prior_fo_var), log=TRUE) #add prior to LLHold	 
+  LLHold <- LLHold + dnorm(old, mean=prior_fo_mean, sd=sqrt(prior_fo_var), log=TRUE) #add prior to LLHold	 
 
   # sample proposal
   prop<-rnorm(1,mean=old,sd=sdprop);
@@ -3517,8 +3517,8 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
-	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
-	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	# fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
     }
