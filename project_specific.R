@@ -37,6 +37,8 @@ cleanUnicodes<-function(unicodes){
 # 
 # # split provincia, district and localily level codes
 # mapLim@data$P<-gsub("^[0-9]*\\.","",mapLim@data$Code)
+# # set the projection system
+# proj4string(mapLim)<-CRS("+proj=longlat +datum=WGS84")
 
 # save it as a separate file
 # save(mapLim,file="ArequipaLim.img")
