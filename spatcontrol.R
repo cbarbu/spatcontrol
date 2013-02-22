@@ -69,7 +69,8 @@ getFactorsHomogeneous<-function(d1,d2){
 	}
 	return(list(d1=d1,d2=d2));
 }
-# return all the lines presenting a somewhere duplicated item
+# return binary vector with TRUE for lines presenting 
+# a somewhere duplicated item
 # (duplicated don't return the first of duplicated items)
 dup.all<-function(vect){
 	if(!is.null(dim(vect))){
@@ -78,7 +79,7 @@ dup.all<-function(vect){
 	linesDuplicates<-which(duplicated(vect)) # every non first version of the duplicate
 
 	dupItems<-unique(vect[linesDuplicates])# duplicated items
-	linesAllDuplicates<-which(vect %in% dupItems)
+	linesAllDuplicates<-(vect %in% dupItems)
 
 	return(linesAllDuplicates)
 }
