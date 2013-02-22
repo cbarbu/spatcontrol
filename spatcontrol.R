@@ -43,6 +43,11 @@ if(class(importOk)=="try-error"){
 # General purpose functions
 #===============================
 
+# a bit faster than head(vect,n=1)
+# matters for aggregate
+first<-function(vect){
+	vect[1]
+}
 signedLog<-function(signedBigNums){
       signNum<-sign(signedBigNums)
       signedLog<-log(abs(signedBigNums))*signNum
@@ -790,6 +795,18 @@ make.col.persp<-function(z,nbcol=100,color.function=jet.colors){
 	facetcol <- cut(zfacet, nbcol)
 	zcol<-color[facetcol]
 	return(zcol)
+}
+
+hist.int<-function(x,main = paste("Histogram of", xname),xlab=xname,...){
+	xname <- paste(deparse(substitute(x), 500), collapse="\n")
+	hist(x,breaks=int.breaks(x),main=main,xlab=xlab,...)
+}
+
+int.breaks<-function(vectInt){
+	# print(vectInt)
+	breaks<-seq(min(vectInt,na.rm=TRUE)-0.5,max(vectInt,na.rm=TRUE)+0.5)
+	# print(breaks)
+	return(breaks)
 }
 
 
