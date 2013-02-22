@@ -49,14 +49,19 @@ load("ArequipaLim.img")
 # * and other characters for regex can be used
 # additional standar arguments to plot can be passed 
 # in particular add=TRUE to add a locality on the top of a plot
-plot.loc.arequipa<-function(locNames,...){
-		# get the number of the polygons
-		listNum<-c()
+plot.loc.arequipa<-function(locNames,utm=TRUE,...){
+	# get the number of the polygons
+	listNum<-c()
 	for(name in locNames){
-				listNum<-c(listNum,grep(name,mapLim@data$Code))
-		}
-		plot(mapLim[listNum,],...)
-			return(invisible(listNum))
+		listNum<-c(listNum,grep(name,mapLim@data$Code))
+	}
+	if(utm){
+		library("rgdal")
+		mapLim<-spTransform(mapLim, CRS("+proj=utm +zone=19"))
+	}
+
+	plot(mapLim[listNum,],...)
+	return(invisible(listNum))
 }
 
 
