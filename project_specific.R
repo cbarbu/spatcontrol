@@ -59,7 +59,7 @@ plot.loc.arequipa<-function(locNames,utm=TRUE,...){
 	}
 	if(utm){
 		library("rgdal")
-		mapLim<-spTransform(mapLim, CRS("+proj=utm +zone=19"))
+		mapLim<-spTransform(mapLim, CRS("+proj=utm +zone=19 +south"))
 	}
 
 	plot(mapLim[listNum,],...)

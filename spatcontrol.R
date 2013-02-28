@@ -48,6 +48,21 @@ if(class(importOk)=="try-error"){
 first<-function(vect){
 	vect[1]
 }
+# returns TRUE for the first occurence of an item in vectId, also 
+# TRUE in vectBin
+firstATrueInB<-function(vectId,vectBin){
+	refBin<-which(vectBin)
+	FirstInRef<-match(unique(vectId[refBin]),vectId[refBin])
+	finalVect<-rep(FALSE,length(vectId))
+	finalVect[refBin[FirstInRef]] <- TRUE
+	return(finalVect)
+}
+# test
+dat<-cbind(c("A","B","A","B","A","B"),c(1,0,1,1,0,0))
+expect_equal(firstATrueInB(dat[,1],dat[,2]==1),c(1,0,0,1,0,0)==1)
+
+# extend the natural logarithm to signed numbers
+# useful for plotting of log(log(likelihood))
 signedLog<-function(signedBigNums){
       signNum<-sign(signedBigNums)
       signedLog<-log(abs(signedBigNums))*signNum
@@ -809,12 +824,10 @@ hist.int<-function(x,main = paste("Histogram of", xname),xlab=xname,...){
 
 int.breaks<-function(vectInt){
 	# print(vectInt)
-	breaks<-seq(min(vectInt,na.rm=TRUE)-0.5,max(vectInt,na.rm=TRUE)+0.5)
+	breaks<-seq(min(vectInt[is.finite(vectInt)],na.rm=TRUE)-0.5,max(vectInt[is.finite(vectInt)],na.rm=TRUE)+0.5)
 	# print(breaks)
 	return(breaks)
 }
-
-
 
 printdev<-function(...){
 	# if(!exists("X11_plot")){
