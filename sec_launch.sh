@@ -29,6 +29,7 @@ echo "let's go"
 
 # parameters
 outputs_folder="../outputs/"
+paramFile="parameters_sampler.R"
 
 # create output $outputs_folder
 if [[ ! -e "$outputs_folder" ]] ; then
@@ -44,7 +45,9 @@ echo "input ok: $1"
 # get the name in the R file
 name_line=$(grep -m 1 "name.*<-" $1) || name_line=""
 if [[ $name_line == "" ]] ; then
-	name_line=$(grep -m 1 "name.*<-" parameters_sampler.r ) || name_line=""
+	if [[ -e $paramFile ]] ; then
+		name_line=$(grep -m 1 "name.*<-" $paramFile ) || name_line=""
+	fi
 	if [[ $name_line == "" ]] ; then
 		echo "cannot find name for the simulation"
 		exit 1
