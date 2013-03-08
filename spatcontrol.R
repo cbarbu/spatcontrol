@@ -977,20 +977,22 @@ moran.spam<-function(dmt,values){
 	return(drop(MI))
 }
 gen.mats.neigh<-function(distances,x,y,group=NULL){
+	cat("Computing distance matrix ...\n")
 	dist_matA <-nearest.dist(x=cbind(x,y), y=NULL, method="euclidian", delta=max(distances), upper=NULL);          
 
+	cat("Computing same group matrix ...\n")
 	dmtA<-dist_matA
 	dimension<-dim(dist_matA)[1]
 	dmtA@entries<-rep(1,length(dmtA@entries))# [dmtA@entries!=0]<-1 # 1 only when dist_matA not 0
 	if(!is.null(group)){
 		SBA <- nearest.dist(x=cbind(group,rep(0,length(group))), method="euclidian", upper=NULL,delta=0.1)
 		SBA@entries<-rep(1,length(SBA@entries))
-		SBA@entries<-rep(1,length(SBA@entries))
 		SBA<-SBA*dmtA;
 
 		ASA<-dmtA-SBA; # get 1 whereever the distances matrix is defined(under threshold) and not same block
 		ASA<-as.spam(ASA)
 	}
+	cat("Computing neighbors proximity ...\n")
 	mats_neigh<-list()
 	for (i in 2:(length(distances))){
 		limiteinf=distances[i-1];
