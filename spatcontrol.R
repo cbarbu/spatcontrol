@@ -680,6 +680,25 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 }
 # plot.classes(db$X,db$Y,db$GroupNum)
 
+# from a vector of real return graduated colors
+xtocolors<-function(x,crp=colorRampPalette(c("blue","green","lightgrey")),inv=FALSE,zcollim=range(x,na.rm=TRUE)){
+    # make color palette
+    zlen <- 150
+    colorlut <- crp(zlen) # height color lookup table
+    if(inv) colorlut <- rev(colorlut)
+
+    # normalize z (to ensure nice display)
+    zscol<- (zlen-1)*(x-min(zcollim)) / (max(zcollim)-min(zcollim)) # normalize zs
+    # zscol<- (zlen-1)*log(x-min(zcollim)+1) / log(max(zcollim)-min(zcollim)+1) # normalize zs
+
+    col <- colorlut[ zscol+1 ] # assign colors to heights for each point
+    return(col)
+}
+# xtocolors(seq(1, 9))
+# plot.palette(xtocolors(seq(1, 9)))
+
+
+
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
 plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
@@ -3100,7 +3119,7 @@ fit.spatautocorel<-function(db=NULL,
   # the intercept is fixed to 0
   intercept <- 0
   if(is.null(muPrior)){
-	muPrior <- qnorm(mean(db$positive[db$observed==1]))
+	muPrior <- qnorm(mean(db$positive[db$observed==1])/3)
   }else{
     	# intercept <- muPrior
   }
