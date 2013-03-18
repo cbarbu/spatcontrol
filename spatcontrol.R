@@ -2434,8 +2434,6 @@ rmvnorm.prec.pseudo <- function (n, mu = rep(0, nrow(Q)), Q, Rstruct = NULL,give
 
 sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimension)){
 
-	if(length(prior_u_mean) != dimension)
-		prior_u_mean = rep(prior_u_mean[1], dimension)
 	
 	R <- K[1]*Q+diag.spam(1,dimension);
 	center <- y + K[1]*Q%*%prior_u_mean;
@@ -2828,7 +2826,7 @@ samplexuv_with_prior_u <- function(dim, Q, K, y, nbsample = 1, prior_u_mean = 0,
 	R_prime <- makeRuv(dim, Q, K, nbsample = 0)
 	R_prime <<- R_prime
 
-	center <- R_prime %*% rep(prior_u_mean[1], 2*dim) +  c(rep(0, dim), y) 
+	center <- R_prime %*% rep(prior_u_mean,2) +  c(rep(0, dim), y) 
 
 	# add nbsample*t(A)%*%A to R
 	R <- R_prime
@@ -2860,7 +2858,7 @@ fastsamplexuv <- function(dim,cholR,y) {
 # R_prime must have nbsample = 0
 fastsamplexuv_with_prior_u <- function(dim, cholR, R_prime, y, prior_u_mean = 0){
 	x <- rnorm(n=(2*dim), mean=0, sd=1)
-	center <- R_prime %*% rep(prior_u_mean[1], 2*dim) +  c(rep(0, dim), y) 
+	center <- R_prime %*% rep(prior_u_mean, 2) +  c(rep(0, dim), y) 
 	x <- backsolve(cholR, forwardsolve(cholR, center)+x)
 	return(x)		
 }
@@ -2934,8 +2932,6 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # then u | y, o, io, fo ~ N((K*Q + (1+fo)I)^-1 * (K*Q*prior_u_mean + I * (y+fo(o-io))), K*Q+(1+fo)I)
 # where [K*Q + (1+fo)I] is the precision matrix of the multivariate normal
 
-	if(length(prior_u_mean) != dimension)
-		prior_u_mean <- rep(prior_u_mean[1], dimension)
 	
 	R <- K[1]*Q + diag.spam(1+fo,dimension);
 	center <- diag.spam(1, dimension)%*%(y+fo*(o-io)) + K[1]*Q%*%prior_u_mean;
@@ -3117,14 +3113,19 @@ fit.spatautocorel<-function(db=NULL,
 
   # given that we set the prior in a clean way in sample_u directly, 
   # the intercept is fixed to 0
+  dimension <- nrow(db);
   intercept <- 0
-  if(is.null(muPrior)){
-	muPrior <- qnorm(mean(db$positive[db$observed==1])/3)
+  if(is.null(muPriorObs)){
+	muPriorObs <- qnorm(mean(db$positive[db$observed==1]))
+  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs)
+	muPrior<-rep(0,dimension)
+	muPrior[db$observed!=1]<-muPriorNonObs
+	muPrior[db$observed==1]<-muPriorObs
   }else{
     	# intercept <- muPrior
   }
+  cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
   cat("Intercept:",intercept,"\n")
-  dimension <- nrow(db);
   db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
   db$status[db$positive==1]<-1
