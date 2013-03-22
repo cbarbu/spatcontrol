@@ -6,12 +6,6 @@ graphics.off()
 #--------------------
 # Generic functions
 #--------------------
-midPoint<-function(pts1,pts2){
-	midPts<-c((pts1[1]+pts2[1])/2,(pts1[2]+pts2[2])/2)
-	return(midPts)
-}
-# midPoint(c(1,0),c(0,1))
-
 labelButton<-function(buttons){
   # label the buttons with easy to remember names
   label<-""
@@ -36,39 +30,62 @@ plotPolys<-function(ptsPolys,add=FALSE,onlyPolys=TRUE,...){
 	if(!add){
 		if(onlyPolys){
 			pts<-unique(unlist(ptsPolys$polys, use.names = FALSE))
-			xlim<-range(ptsPolys$pts[pts,"x"])
-			ylim<-range(ptsPolys$pts[pts,"y"])
+			xlim<-range(ptsPolys$pts[pts,1])
+			ylim<-range(ptsPolys$pts[pts,2])
 			plot(NULL,type="n",xlim=xlim,ylim=ylim,asp=1)
 		}else{
-		plot(NULL,type="n",xlim=range(ptsPolys$pts[,"x"]),ylim=range(ptsPolys$pts[,"y"]),asp=1)
+		plot(NULL,type="n",xlim=range(ptsPolys$pts[,1]),ylim=range(ptsPolys$pts[,2]),asp=1)
 		}
 	}
 	for(i in 1:length(ptsPolys$polys)){
 		polyPoints<-ptsPolys$polys[[i]]
-		polygon(ptsPolys$pts[polyPoints,"x"],ptsPolys$pts[polyPoints,"y"],...)
+		polygon(ptsPolys$pts[polyPoints,1],ptsPolys$pts[polyPoints,2],...)
 	}
 }
 
-plotMesh<-function(vertices=NULL,polys=NULL,triangles=NULL, xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r",xlab="X",ylab="Y",add=FALSE){
+plotMesh<-function(vertices=NULL,polys=NULL,triangles=NULL, xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r",xlab="X",ylab="Y",add=FALSE,cex=1){
 	if(!is.null(polys)){
 		plotPolys(list(pts=vertices,polys=polys))
-		lines(vertices[,"x"],vertices[,"y"],type="p",pch=".")
+		lines(vertices[,1],vertices[,2],type="p",pch=1,cex=cex)
 	}else{
-		plot(vertices[,"x"],vertices[,"y"], xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs,xlab=xlab,ylab=ylab,asp=1,pch=".")
+		plot(vertices[,1],vertices[,2], xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs,xlab=xlab,ylab=ylab,asp=1,pch=".",cex=cex)
 	}
 	if(!is.null(triangles)){
 		nbtri<-max(0,dim(triangles)[1])
 		for(numtri in 1:nbtri){
 			#cat("numtri:",numtri,"\n")
-			polygon(vertices[triangles[numtri,],"x"],vertices[triangles[numtri,],"y"],col="lightblue")
+			polygon(vertices[triangles[numtri,],1],vertices[triangles[numtri,],2],col="lightblue")
 		}
 	}
 }
 
-identifyFromPoints<-function(x,y,coords){
-  pos<-which.min((coords[,"x"]-x)^2+(coords[,"y"]-y)^2)
-  return(pos)
+# match x,y to point in coords, if distance to this point 
+# is <= tolerance*dist to second closest point
+# else return NA
+identifyFromPoints<-function(x,y,coords,tolerance=0.5){
+	dists<-sqrt((coords[,1]-x)^2+(coords[,2]-y)^2)
+	pos<-which.min(dists)
+
+	if(is.double(tolerance)){
+		# check tolerance: 
+		# must be at least twice closer than to second
+		dist1<-dists[pos]
+		dists2<-dists[-pos]
+		pos2<-which.min(dists[-pos])
+		dist2<-dists2[pos2]
+		# cat("dist1:",dist1,"dist2:",dist2,"\n")
+		if(dist1>dist2*tolerance){
+			return(NA)
+		}
+	}
+
+	return(pos)
 }
+coordsRef<-matrix(c(0,0,0,1),ncol=2)
+expect_equal(identifyFromPoints(0.1,0,coordsRef),1)
+expect_equal(identifyFromPoints(0,0.9,coordsRef),2)
+expect_true(is.na(identifyFromPoints(1,0.9,coordsRef)))
+
 
 #======================================
 # Call back loop
