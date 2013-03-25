@@ -14,6 +14,18 @@ library(fields)
 
 source("project_specific.R")
 
+first.bigger<-function(pvalue,intValues){
+	min(which(intValues>pvalue))
+}
+star.on.pvalues<-function(pvalues){
+	intCodes<-c('***','**','*','.',' ') 
+	intValues<-c(0.001,0.01,.05,.1,1)
+	# which intValues bigger than pvalue in pvalues?
+	biggers<-sapply(pvalues,first.bigger,intValues)
+	pcodes<-intCodes[biggers]
+	return(pcodes)
+}
+
 compilLoad<-function(sourcef){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
@@ -997,6 +1009,11 @@ moran.spam<-function(dmt,values){
 }
 gen.mats.neigh<-function(distances,x,y,group=NULL){
 	cat("Computing distance matrix ...\n")
+	# check coord for all points
+	if(count(is.na(x))>0|count(is.na(y))>0){
+		stop("gen.mats.neigh cannot handle NA in x and/or y")
+	}
+
 	dist_matA <-nearest.dist(x=cbind(x,y), y=NULL, method="euclidian", delta=max(distances), upper=NULL);          
 
 	cat("Computing same group matrix ...\n")
@@ -1004,6 +1021,7 @@ gen.mats.neigh<-function(distances,x,y,group=NULL){
 	dimension<-dim(dist_matA)[1]
 	dmtA@entries<-rep(1,length(dmtA@entries))# [dmtA@entries!=0]<-1 # 1 only when dist_matA not 0
 	if(!is.null(group)){
+		group<-as.factor(group)
 		SBA <- nearest.dist(x=cbind(group,rep(0,length(group))), method="euclidian", upper=NULL,delta=0.1)
 		SBA@entries<-rep(1,length(SBA@entries))
 		SBA<-SBA*dmtA;
@@ -1030,11 +1048,12 @@ gen.mats.neigh<-function(distances,x,y,group=NULL){
 			ASr<-ASA*dmtr;
 			SBr<-SBA*dmtr;
 			cat(" (SG:",round(sum(SBr/2)/dimension,digits=2),";DG:",round(sum(ASr/2)/dimension,digits=2),")")
-			mats_neigh[[i]]<-list(dmtr=dmtr,SBr=SBr,ASr=ASr);
+			mats_neigh[[i-1]]<-list(dmtr=dmtr,SBr=SBr,ASr=ASr);
 		}else{
-			mats_neigh[[i]]<-list(dmtr=dmtr);
+			mats_neigh[[i-1]]<-list(dmtr=dmtr);
 		}
 	}
+	mats_neigh[[1]]$dm<-dist_matA
 	cat("\n")
 	attributes(mats_neigh)$breaks<-distances
 	return(mats_neigh)
@@ -1062,7 +1081,7 @@ structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE
 		values<-raw.values
 	}
 	breaks<-attributes(mats_neigh)$breaks
-	if(length(mats_neigh[[2]])==3){
+	if(length(mats_neigh[[1]])==3){
 		include_streets_anal<-TRUE
 	}else{
 		include_streets_anal<-FALSE
@@ -1086,23 +1105,23 @@ structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE
 
 		label<-paste(limiteinf,limitesup,sep="-")
 		if(length(zNA)>0){
-			dmtr<-mats_neigh[[i]][[1]][zNoNA,zNoNA]
+			dmtr<-mats_neigh[[i-1]][[1]][zNoNA,zNoNA]
 		}else{
-			dmtr<-mats_neigh[[i]][[1]]
+			dmtr<-mats_neigh[[i-1]][[1]]
 		}
 		mI1[[label]]<-moran.spam(dmtr,values);
 		cat(" Moran's I:", mI1[[label]]);
 		nb_neigh[i,1]<-sum(dmtr/2) # div by 2 as the matrix is sym
 		if(include_streets_anal){
 			if(length(zNA)>0){
-				SBrtrue<-mats_neigh[[i]][[2]][zNoNA,zNoNA]
+				SBrtrue<-mats_neigh[[i-1]][[2]][zNoNA,zNoNA]
 			}else{
-				SBrtrue<-mats_neigh[[i]][[2]]
+				SBrtrue<-mats_neigh[[i-1]][[2]]
 			}
 			if(length(zNA)>0){
-				ASr<-mats_neigh[[i]][[3]][zNoNA,zNoNA]
+				ASr<-mats_neigh[[i-1]][[3]][zNoNA,zNoNA]
 			}else{
-				ASr<-mats_neigh[[i]][[3]]
+				ASr<-mats_neigh[[i-1]][[3]]
 			}
 			mI2[[label]]<-moran.spam(SBrtrue,values);
 			mI3[[label]]<-moran.spam(ASr,values);
@@ -1534,7 +1553,7 @@ StructCorrel<-function(distances,Q=NULL,CovMat=NULL,mats_neigh=NULL){
 			stop("Need Q or CovMat\n")
 		}
 	}
-	if(length(mats_neigh[[2]])==3){
+	if(length(mats_neigh[[1]])==3){
 		include_streets_anal<-TRUE
 	}else{
 		include_streets_anal<-FALSE
@@ -1548,11 +1567,11 @@ StructCorrel<-function(distances,Q=NULL,CovMat=NULL,mats_neigh=NULL){
 		# NB: any function can be put in the glist argument of nb2listw
 
 		label<-paste(limiteinf,limitesup,sep="-")
-		dmtr<-mats_neigh[[i]][[1]]
+		dmtr<-mats_neigh[[i-1]][[1]]
 		SC[i,1]<-MeanCovPairAtDist(dmtr,CovMat);
 		if(include_streets_anal){
-			SBr<-mats_neigh[[i]][[2]]
-			ASr<-mats_neigh[[i]][[3]]
+			SBr<-mats_neigh[[i-1]][[2]]
+			ASr<-mats_neigh[[i-1]][[3]]
 			SC[i,2]<-MeanCovPairAtDist(SBr,CovMat);
 			SC[i,3]<-MeanCovPairAtDist(ASr,CovMat);
 		}
@@ -1563,7 +1582,7 @@ StructCorrel<-function(distances,Q=NULL,CovMat=NULL,mats_neigh=NULL){
 }
 StructNeigh<-function(distances,mats_neigh){
 	
-	nb_mat<-length(mats_neigh[[2]])
+	nb_mat<-length(mats_neigh[[1]])
 	nb_neigh<-as.data.frame(mat.or.vec(length(distances),nb_mat+1))
 	if(nb_mat==3){
 		include_streets_anal<-TRUE
@@ -1582,12 +1601,12 @@ StructNeigh<-function(distances,mats_neigh){
 
 		label<-paste(limiteinf,limitesup,sep="-")
 		row.names(nb_neigh)[i]<-label
-		dmtr<-mats_neigh[[i]][[1]]
+		dmtr<-mats_neigh[[i-1]][[1]]
 		nb_neigh[i,1]<-sum(dmtr/2) # div by 2 as the matrix is sym
 		nb_neigh[i,2]<- (limiteinf+limitesup)/2
 		if(include_streets_anal){
-			SBr<-mats_neigh[[i]][[2]]
-			ASr<-mats_neigh[[i]][[3]]
+			SBr<-mats_neigh[[i-1]][[2]]
+			ASr<-mats_neigh[[i-1]][[3]]
 			nb_neigh[i,3]<-sum(SBr/2)
 			nb_neigh[i,4]<-sum(ASr/2)
 		}
