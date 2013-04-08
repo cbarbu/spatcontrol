@@ -27,6 +27,7 @@ cleanUnicodes<-function(unicodes){
 # plot shapefiles of locality limits
 ########################
 ## regenerate the R object file:
+# library(maptools)
 # mapLim<-readShapeSpatial("LocalitiesBoundaries/Arequipa_limits")
 # mapLim@data
 # mapLim@polygons
