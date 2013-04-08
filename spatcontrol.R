@@ -14,8 +14,35 @@ library(fields)
 
 source("project_specific.R")
 
+# insert in vector at spot i, moving i if existing to the right
+insert<-function(vals,vect,spot){
+	if(spot>1){
+		if(spot>length(vect)){
+			out<-c(vect,vals)
+			if(spot>length(vect)+1){
+				warning(paste("insert at spot",spot,"but length is",length(vect)))
+			}
+		}else{
+			out<-c(vect[1:(spot-1)],vals,vect[spot:length(vect)])
+		}
+	}else{
+		out<-c(vals,vect)
+	}
+	return(out)
+}
+expect_equal(insert(c(1,2),c(5,4,3,2,1),2),c(5,1,2,4,3,2,1))
+expect_equal(insert(c(1,2),c(5,4,3,2,1),1),c(1,2,5,4,3,2,1))
+expect_equal(insert(c(1,2),c(5,4,3,2,1),6),c(5,4,3,2,1,1,2))
+suppressWarnings(expect_equal(insert(c(1,2),c(5,4,3,2,1),7),c(5,4,3,2,1,1,2)))
+expect_warning(insert(c(1,2),c(5,4,3,2,1),7),paste("insert at spot 7 but length is 5"))
+
 first.bigger<-function(pvalue,intValues){
-	min(which(intValues>pvalue))
+	if(!is.na(pvalue)){
+		val<-min(which(intValues>pvalue))
+	}else{
+		val<-NA
+	}
+	return(val)
 }
 star.on.pvalues<-function(pvalues){
 	intCodes<-c('***','**','*','.',' ') 
@@ -3060,7 +3087,8 @@ fit.spatautocorel<-function(db=NULL,
 			    cofactors=NULL,
 			    save.fields=FALSE,
 			    fit.OgivP=FALSE,
-			    dist_mat=NULL
+			    dist_mat=NULL,
+			    aggreg=NULL
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -3076,6 +3104,9 @@ fit.spatautocorel<-function(db=NULL,
   # threshold: distance above which the spatial linked is not assessed (considered null), Nota: this can be much lower than the distance at which there is covariance as it is linked to the partial-covariance, not the general covariance
   # the function can be "softly stopped", saving everything by 
   # uncommenting break() in manual_stop.R
+  # aggreg, optional, groups on which the estimated positiveness should 
+  # be recorded in addition to the individual positiveness, for 
+  # example a vector with locality codes
 
   # avoid a number of miscodifications
   db<-set_to(db,init=c("NULL","NA"),final=0)
@@ -3120,6 +3151,17 @@ fit.spatautocorel<-function(db=NULL,
   
   cat("Fit p(Observed|Positive):",fit.OgivP,"\n") 
 
+  if(is.null(aggreg)){
+	  cat("No aggregated positiveness\n")
+  }else{
+	  if(length(aggreg)!=dim(db)[1]){
+		  stop("aggreg vector not correct length\n")
+	  }
+	  cat("Also aggregated positiveness\n")
+	  byAgg<-as.data.frame(table(aggreg))
+  }
+
+
   # Non observed
   if(is.null(db$observed)){
     use.NA<-FALSE
@@ -3135,8 +3177,9 @@ fit.spatautocorel<-function(db=NULL,
   dimension <- nrow(db);
   intercept <- 0
   if(is.null(muPriorObs)){
-	muPriorObs <- qnorm(mean(db$positive[db$observed==1]))
-  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs)
+	estSD<-(1+1/Ku+1/Kv)
+	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
+  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs,mean=0,sd=estSD)
 	muPrior<-rep(0,dimension)
 	muPrior[db$observed!=1]<-muPriorNonObs
 	muPrior[db$observed==1]<-muPriorObs
@@ -3560,6 +3603,8 @@ if(visu.progression){
 	par(mfcol=c(nbploted,5))
 }
 sumSBshares<-rep(0,length(w))
+
+write.table(t(namesSampled),monitorfile,sep="\t",col.names=FALSE,row.names=FALSE)
 
 ### Main Loop
 mainLoopStart<-proc.time()
