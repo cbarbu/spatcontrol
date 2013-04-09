@@ -74,7 +74,6 @@ plot.loc.arequipa<-function(locNames,utm=TRUE,...){
 # plot(mapLim) # to plot all the localities
 # locNames<-c("1.8.12","1.8.30")
 # plot.loc.arequipa(locNames,add=TRUE,col="blue")
-# 
 # plot.loc.arequipa("1.8.*")
 # plot.loc.arequipa(locNames,add=TRUE,col="blue")
 # # and to plot something (like text/data) at the centroid of the polygons you can use
