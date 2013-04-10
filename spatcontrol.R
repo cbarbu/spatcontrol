@@ -3321,7 +3321,7 @@ fit.spatautocorel<-function(db=NULL,
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
   muInit<-qnorm(estMean,mean=0,sd=estSD)
-  muInit[is.na(muInit)]<-qnorm(mean(estMean,na.rm=TRUE),mean=0,sd=estSD[is.na(muInit)])
+  muInit[is.na(muInit)]<-qnorm(mean(estMean,na.rm=TRUE)/factMuPriorNonObs,mean=0,sd=estSD[is.na(muInit)])
   if(!is.null(mu)){
 	  muInit<-rep(mu,dimension);
 	  cat("Mu init homogenous:",mu,"\n")
