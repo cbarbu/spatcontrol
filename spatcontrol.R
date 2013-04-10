@@ -11,6 +11,7 @@ library(LaplacesDemon)
 library(locfit)
 library("binom")
 library(fields)
+library(boa)
 
 source("project_specific.R")
 
@@ -2203,6 +2204,8 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 }
 # Ex: cb.diag(a<-matrix(rnorm(10000),ncol=10))
 
+# # To perform the Gelman-Rubin (from library(boa))
+# boa.chain.gandr(list(matrixOfParamChains1,matrixOfParamChains2),alpha=0.05)
 
 # Kernel, NB: specific treatment of spam is 2 to 10 times more efficient
 expKernel<-function(T,matdist,f){
