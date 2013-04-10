@@ -3321,6 +3321,7 @@ fit.spatautocorel<-function(db=NULL,
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
   muInit<-qnorm(estMean,mean=0,sd=estSD)
+  muInit[is.na(muInit)]<-qnorm(mean(estMean,na.rm=TRUE),mean=0,sd=estSD[is.na(muInit)])
   if(!is.null(mu)){
 	  muInit<-rep(mu,dimension);
 	  cat("Mu init homogenous:",mu,"\n")
@@ -3334,10 +3335,13 @@ fit.spatautocorel<-function(db=NULL,
 	  par(mfrow=c(2,2))
 	  obs<-db$positive
 	  obs[db$observed==0]<-0.5
-	  with(db,plot_reel(X,Y,obs,base=0,top=1),)
-	  with(db,plot_reel(X,Y,estMean,base=0))
-	  with(db,plot_reel(X,Y,estSD,base=0,top=max(estSD)))
-	  with(db,plot_reel(X,Y,muPrior,base=-5,top=3))
+	  with(db,plot_reel(X,Y,obs,base=0,top=1,main="Observed"))
+	  with(db,plot_reel(X,Y,estMean,base=0,main="Krigged Mean"))
+	  with(db,plot_reel(X,Y,estSD,base=0,top=max(estSD),main="PriorSD"))
+	  with(db,plot_reel(X,Y,muPrior,base=-5,top=3,main="prior Mu"))
+	  # in addition can check with 
+	  # retroPrior<-pnorm(muPrior,0,estSD)
+	  # with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
 
 	  cat("Personalyze muPrior following prior mu\n")
   }else if (muPriorObs=="useFactNA"){
