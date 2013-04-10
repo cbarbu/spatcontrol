@@ -3307,16 +3307,22 @@ fit.spatautocorel<-function(db=NULL,
   # the intercept is fixed to 0
   dimension <- nrow(db);
   intercept <- 0
+
+  # set init mu according to the prior variance/covariance
+  QnoDiag<- -Q
+  diag(QnoDiag)<- kern(1,rep(0,dim(Q)[1]),f)
+  initPos<-db$positive
+  initPos[db$observed==0]<-NA
+  estMean<-krig.weightMat(initPos,QnoDiag) # mean(db$positive[db$observed==1])
+  diag(QnoDiag)<- 0
+  estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
+  muInit<-qnorm(estMean,mean=0,sd=estSD)
+  if(!is.null(mu)){
+	  muInit<-rep(mu,dimension);
+  }
+
   if(is.null(muPriorObs)){
-	  # set the prior according to the prior variance/covariance
-	  QnoDiag<- -Q
-	  diag(QnoDiag)<- kern(1,rep(0,dim(Q)[1]),f)
-	  initPos<-db$positive
-	  initPos[db$observed==0]<-NA
-	  estMean<-krig.weightMat(initPos,QnoDiag) # mean(db$positive[db$observed==1])
-	  diag(QnoDiag)<- 0
-	  estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
-	  muPrior<-qnorm(estMean,mean=0,sd=estSD)
+	  muPrior<-muInit
 	  dev.new()
 	  par(mfrow=c(2,2))
 	  with(db,plot_reel(X,Y,positive+observed,base=0,top=2))
@@ -3479,8 +3485,8 @@ if(use.insp){
 # cat("at Q build\n T:",T,"f:",f,"Ku:",Ku,"Kv:",Kv,"\n")
 cholQ<-chol(Q);
 
-u<-rep(mu,dimension);
-y<-rep(mu,dimension);
+u<-muPrior;
+y<-muPrior;
 yprime <- (y>0);
 if(use.v){
 w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
