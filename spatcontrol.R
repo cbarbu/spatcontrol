@@ -2206,6 +2206,39 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 
 # # To perform the Gelman-Rubin (from library(boa))
 # boa.chain.gandr(list(matrixOfParamChains1,matrixOfParamChains2),alpha=0.05)
+# or simpler:
+
+gelmanRubinWrapper<-function(listChainsTables,mins,maxs,alpha=0.05,Rlimit=1.05){
+	nChains<-length(listChainsTables);
+
+	names(listChainsTables)<-as.character(seq(1:nChains));
+
+	support <- rbind(mins,maxs);
+	colnames(support)<-names(listChainsTables[[1]]);
+
+	chains1.support <- list();
+	for(i in 1:nChains){
+		chains1.support[[i]] <- support;
+	}
+	names(chains1.support)<-names(listChainsTables);
+
+	gr1 <- boa.chain.gandr(listChainsTables, chains1.support,  alpha = 0.05);
+	gr1[["ok"]]<- gr1[["csrf"]][,2]<Rlimit;
+	gr1[["Rlimit"]]<-Rlimit;
+
+	return(gr1);
+}
+# Example:
+# chains1 <- list();
+# chains1[[1]] <- read.table("completethetasamples_all12000_1.txt",header=TRUE)
+# chains1[[2]] <- read.table("completethetasamples_all12000.txt",header=TRUE)
+# chains1[[3]] <- read.table("completethetasamples_all12000_0.txt",header=TRUE)
+# 
+# mins<-c(-Inf,-Inf,0,0);
+# maxs<-rep(+Inf,4);
+
+# gr1<-gelmanRubinWrapper(chains1,mins,maxs)
+# gr1$ok # indicate if the values are ok using the Rlimit (default 1.05, 1.1 enough according to Gelman2004, p. 297)
 
 # Kernel, NB: specific treatment of spam is 2 to 10 times more efficient
 expKernel<-function(T,matdist,f){
