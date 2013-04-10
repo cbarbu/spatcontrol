@@ -1000,6 +1000,23 @@ grid.from.sample<-function(known.x,known.y,known.z,
 			));
 }
 
+# simple krigging based on a precision matrix Q
+krig.weightMat<-function(initValues,W){
+	# if NA, compute the values in NA but don't take them into account for the computations
+	# if no neighbor, keep initial value
+
+	finalValues<-initValues
+
+	include<-as.numeric(!is.na(initValues)) # NA neighbors do not participate
+	denom<-W %*% include 
+
+	notIsolat<-which(denom!=0)
+	initValues[!include]<-0
+	finalValues[notIsolat]<-W[notIsolat,notIsolat]%*% (initValues[notIsolat])/denom[notIsolat]
+
+	return(finalValues)
+}
+
 
 
 #===============================
@@ -3197,7 +3214,6 @@ fit.spatautocorel<-function(db=NULL,
 	  byAgg<-as.data.frame(table(aggreg))
   }
 
-
   # Non observed
   if(is.null(db$observed)){
     use.NA<-FALSE
@@ -3207,28 +3223,6 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(which(db$observed==0)),")",sep="")
   }
   cat("Account for non-observed points:",use.NA,mes,"\n") 
-
-  # given that we set the prior in a clean way in sample_u directly, 
-  # the intercept is fixed to 0
-  dimension <- nrow(db);
-  intercept <- 0
-  if(is.null(muPriorObs)){
-	estSD<-(1+1/Ku+1/Kv)
-	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
-  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs,mean=0,sd=estSD)
-	muPrior<-rep(0,dimension)
-	muPrior[db$observed!=1]<-muPriorNonObs
-	muPrior[db$observed==1]<-muPriorObs
-  }else{
-    	# intercept <- muPrior
-  }
-  cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
-  cat("Intercept:",intercept,"\n")
-  db$status<-rep(0,dim(db)[1])
-  db$status[db$observed!=1]<-9
-  db$status[db$positive==1]<-1
-  INTERMEDIARY<-FALSE
-
   cat("Account for spatial autocorrelation:")
   if(!is.null(db$X)){
     use.spat<-TRUE
@@ -3300,6 +3294,55 @@ fit.spatautocorel<-function(db=NULL,
 	  if (use.v) cat(";Kv=",Kv,sep="")
 	  cat(")\n",sep="");
   }
+
+  ## starting values
+  K<-c(Ku,Kv,Kc);
+  if(use.streets){
+	  Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
+  }else{
+	  Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
+  }
+
+  # given that we set the prior in a clean way in sample_u directly, 
+  # the intercept is fixed to 0
+  dimension <- nrow(db);
+  intercept <- 0
+  if(is.null(muPriorObs)){
+	  # set the prior according to the prior variance/covariance
+	  QnoDiag<- -Q
+	  diag(QnoDiag)<- kern(1,rep(0,dim(Q)[1]),f)
+	  initPos<-db$positive
+	  initPos[db$observed==0]<-NA
+	  estMean<-krig.weightMat(initPos,QnoDiag) # mean(db$positive[db$observed==1])
+	  diag(QnoDiag)<- 0
+	  estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
+	  muPrior<-qnorm(estMean,mean=0,sd=estSD)
+	  dev.new()
+	  par(mfrow=c(2,2))
+	  with(db,plot_reel(X,Y,positive+observed,base=0,top=2))
+	  with(db,plot_reel(X,Y,estMean,base=0))
+	  with(db,plot_reel(X,Y,estSD,base=0))
+	  with(db,plot_reel(X,Y,muPrior,base=-5,top=3))
+
+	  cat("Personalyze muPrior following prior Q\n")
+  }else if (muPriorObs=="useFactNA"){
+	estSD<-sqrt(1+1/Ku+1/Kv)
+	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
+  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs,mean=0,sd=estSD)
+	muPrior<-rep(0,dimension)
+	muPrior[db$observed!=1]<-muPriorNonObs
+	muPrior[db$observed==1]<-muPriorObs
+	cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
+  }else{
+    	# intercept <- muPrior
+  }
+  cat("Intercept:",intercept,"\n")
+  db$status<-rep(0,dim(db)[1])
+  db$status[db$observed!=1]<-9
+  db$status[db$positive==1]<-1
+  INTERMEDIARY<-FALSE
+
+
 
   cat("Account for local noise:",use.v,"\n")
 
@@ -3431,15 +3474,6 @@ if(use.insp){
 	bivect <- as.vector(inspector %*% beta);
 }else{
 	bivect<-rep(priorinspquality,dimension)
-}
-
-
-## starting values
-K<-c(Ku,Kv,Kc);
-if(use.streets){
-	Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
-}else{
-	Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
 }
 
 # cat("at Q build\n T:",T,"f:",f,"Ku:",Ku,"Kv:",Kv,"\n")
