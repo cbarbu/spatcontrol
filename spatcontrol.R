@@ -3171,6 +3171,9 @@ fit.spatautocorel<-function(db=NULL,
     cat("\nMissing \"positive\" in db. Aborting.\n")
     return(NULL)
   }
+  if(exists("nameSimul")){
+	  cat("Simul:",nameSimul,"\n")
+  }
 
   cat("\n")
   cat("Assessing computation to perform\n")
@@ -3314,24 +3317,29 @@ fit.spatautocorel<-function(db=NULL,
   initPos<-db$positive
   initPos[db$observed==0]<-NA
   estMean<-krig.weightMat(initPos,QnoDiag) # mean(db$positive[db$observed==1])
-  estMean[db$observed!=1]<-estMean/factMuPriorNonObs
+  estMean[db$observed!=1]<-estMean[db$observed!=1]/factMuPriorNonObs
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
   muInit<-qnorm(estMean,mean=0,sd=estSD)
   if(!is.null(mu)){
 	  muInit<-rep(mu,dimension);
+	  cat("Mu init homogenous:",mu,"\n")
+  }else{
+	  cat("Mu init reflecting krigging\n")
   }
 
   if(is.null(muPriorObs)){
 	  muPrior<-muInit
 	  dev.new()
 	  par(mfrow=c(2,2))
-	  with(db,plot_reel(X,Y,positive+observed,base=0,top=2))
+	  obs<-db$positive
+	  obs[db$observed==0]<-0.5
+	  with(db,plot_reel(X,Y,obs,base=0,top=1),)
 	  with(db,plot_reel(X,Y,estMean,base=0))
-	  with(db,plot_reel(X,Y,estSD,base=0))
+	  with(db,plot_reel(X,Y,estSD,base=0,top=max(estSD)))
 	  with(db,plot_reel(X,Y,muPrior,base=-5,top=3))
 
-	  cat("Personalyze muPrior following prior Q\n")
+	  cat("Personalyze muPrior following prior mu\n")
   }else if (muPriorObs=="useFactNA"){
 	estSD<-sqrt(1+1/Ku+1/Kv)
 	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
