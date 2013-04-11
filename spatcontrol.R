@@ -3312,11 +3312,13 @@ fit.spatautocorel<-function(db=NULL,
   intercept <- 0
 
   # set init mu according to the prior variance/covariance
+  # should really use something like the autocorrelogram in spite of Q
+  # for the prior
   QnoDiag<- -Q
   diag(QnoDiag)<- kern(1,rep(0,dim(Q)[1]),f)
   initPos<-db$positive
   initPos[db$observed==0]<-NA
-  estMean<-krig.weightMat(initPos,QnoDiag) # mean(db$positive[db$observed==1])
+  estMean<-krig.weightMat(initPos,QnoDiag)+epsilonProba # mean(db$positive[db$observed==1])
   estMean[db$observed!=1]<-estMean[db$observed!=1]/factMuPriorNonObs
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
@@ -3328,13 +3330,15 @@ fit.spatautocorel<-function(db=NULL,
   }else{
 	  cat("Mu init reflecting krigging\n")
   }
+  # save it in db
+  db$krigMean<-estMean
 
   if(is.null(muPriorObs)){
 	  muPrior<-muInit
-	  dev.new()
-	  par(mfrow=c(2,2))
 	  obs<-db$positive
 	  obs[db$observed==0]<-0.5
+	  dev.new()
+	  par(mfrow=c(2,2))
 	  with(db,plot_reel(X,Y,obs,base=0,top=1,main="Observed"))
 	  with(db,plot_reel(X,Y,estMean,base=0,main="Krigged Mean"))
 	  with(db,plot_reel(X,Y,estSD,base=0,top=max(estSD),main="PriorSD"))
@@ -3535,7 +3539,7 @@ if(use.cofactors){
   wnotr<-c.comp
 }else{
   LLHc<-0
-  wnotr<-0*u
+  wnotr<-0*u # everything not in r (u,v)
 }
 
 ItTestNum<-gibbsit(NULL,NminOnly=TRUE);
@@ -4080,6 +4084,17 @@ attributes(db)$lastBurnIn<-lastBurnIn
 attributes(db)$Kthin<-Kthin
 attributes(db)$freqsave<-freqsave
 attributes(db)$nbiterations<-nbiterations
+dev.new()
+par(mfrow=c(2,2))
+with(db,plot_reel(X,Y,obs,base=0,top=1,main="Observed"))
+with(db,plot_reel(X,Y,estMean,base=0,main="Krigged Mean"))
+with(db,plot_reel(X,Y,muPrior,base=-5,top=3,main="prior Mu"))
+with(db,plot_reel(X,Y,p.i,base=0,top=1,main="posterior proba"))
+# in addition can check with 
+# retroPrior<-pnorm(muPrior,0,estSD)
+# with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
+
+
 
 save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
