@@ -2111,9 +2111,13 @@ Geweke.Diagnostic <- function (db,frac1=0.1,frac2=0.5) {
     y.mean[[1]] - y.mean[[2]]
   }/sqrt(y.variance[[1]] + y.variance[[2]])
   print(cbind(y.mean[[1]],y.mean[[2]],y.variance[[1]],y.variance[[2]]))
+  if (any(y.variance[[1]]==0) || any(y.variance[[2]]==0)){
+	  stop("Geweke spectral variance null")
+  }
 
   return(z)
 }
+
 basicGeweke<-function(db,frac1=0.1,frac2=0.5){
   x<-as.matrix(db)
   startx <- 1
@@ -2169,8 +2173,8 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 	cat("new Kthin:",Kthin,"Kind",Kind,"\n",file=logfile,append=TRUE);
 	burnIn<-resRafMax[2]*KthinInit;
 	Nmin<-resRafMax[4];
-	if(nbItMin<nbItBrut){
-		cat("Raftery positive (",nbItBrut,">",nbItMin,")\n",file=logfile,append=TRUE);
+	if(nbItMin<=nbItBrut){
+		cat("Raftery positive (",nbItBrut,">=",nbItMin,")\n",file=logfile,append=TRUE);
 		## if enough iterations according to the raftery, test if Geweke ok on non burnin 
 		discard<-burnIn;
 		result<-TRUE;
