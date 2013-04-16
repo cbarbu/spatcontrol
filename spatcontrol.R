@@ -4258,7 +4258,7 @@ trace.mcmc<-function(samples=NULL,dbFit=NULL){
 
   return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
 }
-get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
   C<-C[which(!is.infinite(C))]
   if(length(which(!is.na(C)))>1){
     estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
@@ -4275,19 +4275,15 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
     }
     attributes(densfit)$Nthin<-Nthin
     if(Nthin>1){
-	    name<-paste(name," thinned x",Nthin,sep="")
+      name<-paste(name," thinned x",Nthin,sep="")
     }
 
-    if(class(densfit)== "try-error"){
-	    vals<-NULL
-	    cat("Could not fit an estimate for ",name,". Try cb.diag(thisVariable) and pass the not BurnIn part of the chain to get.estimate.\n",sep="")
-	    if(visu){
-		    hist(C,xlab=name)
-	    }
-    }else{
-	    vals<-predict(densfit,estimate)
+    vals<-predict(densfit,estimate)
     if(visu){
-      plot(densfit,xlab=name)
+	if(is.null(xlim))
+      		plot(densfit,xlab=name)
+	else
+		plot(densfit, xlab=name, xlim = xlim)
       lines(rep(estimate[1],2),c(0,vals[1]),col="black")
       for(q in 2:4){
 	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
@@ -4311,7 +4307,6 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL){
 	}
 	legend(loc,leg.text,col=leg.col,lty=1)
       }
-    }
     }
   }else{
     densfit<-NULL
