@@ -706,7 +706,7 @@ plot.palette<-function(colVect=palette()){
 #     palette(strongColors)
 #     plot.palette()
 
-class.colors<-function(C,colVect=colors()){
+class.colors<-function(C,colVect=strongColors){
   # return a vector of colors corresponding to the values of C understood
   # as classes 
   # allow call in plot(...,col=class.colors(C))
@@ -3323,6 +3323,9 @@ fit.spatautocorel<-function(db=NULL,
   initPos<-db$positive
   initPos[db$observed==0]<-NA
   estMean<-krig.weightMat(initPos,QnoDiag)+epsilonProba # mean(db$positive[db$observed==1])
+  meanBeta<-abeta/(abeta+bbeta)
+  estMean<-estMean/meanBeta # correct for prior on non-observed
+  estMean[estMean>=1] <- 1-epsilonProba
   estMean[db$observed!=1]<-estMean[db$observed!=1]/factMuPriorNonObs
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
@@ -3334,8 +3337,6 @@ fit.spatautocorel<-function(db=NULL,
   }else{
 	  cat("Mu init reflecting krigging\n")
   }
-  # save it in db
-  db$krigMean<-estMean
 
   if(is.null(muPriorObs)){
 	  muPrior<-muInit
@@ -3343,10 +3344,10 @@ fit.spatautocorel<-function(db=NULL,
 	  obs[db$observed==0]<-0.5
 	  dev.new()
 	  par(mfrow=c(2,2))
-	  with(db,plot_reel(X,Y,obs,base=0,top=1,main="Observed"))
-	  with(db,plot_reel(X,Y,estMean,base=0,main="Krigged Mean"))
-	  with(db,plot_reel(X,Y,estSD,base=0,top=max(estSD),main="PriorSD"))
-	  with(db,plot_reel(X,Y,muPrior,base=-5,top=3,main="prior Mu"))
+	  plot_reel(db$X,db$Y,obs,base=0,top=1,main="Observed")
+	  plot_reel(db$X,db$Y,estMean,base=0,main="Krigged Mean")
+	  plot_reel(db$X,db$Y,estSD,base=0,top=max(estSD),main="PriorSD")
+	  plot_reel(db$X,db$Y,muPrior,base=-5,top=3,main="prior Mu")
 	  # in addition can check with 
 	  # retroPrior<-pnorm(muPrior,0,estSD)
 	  # with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
@@ -3361,15 +3362,14 @@ fit.spatautocorel<-function(db=NULL,
 	muPrior[db$observed==1]<-muPriorObs
 	cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
   }else{
-    	# intercept <- muPrior
+	  muPrior<-rep(muPriorObs,dim(Q)[1])
+	  cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorObs,"\n")
   }
   cat("Intercept:",intercept,"\n")
   db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
-
-
 
   cat("Account for local noise:",use.v,"\n")
 
@@ -3572,18 +3572,20 @@ if(use.cofactors){
 }
 LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
 
-sumSBshares<-rep(0,length(w))
-kernSB<-kern(1,SBdist,f)
-kernAS<-kern(T,ASdist,f)
-kernASnoT<-kern(1,ASdist,f)
-SBweights<-apply_by_row_not_null.spam(kernSB,sum,na.rm=TRUE)
-ASweights<-apply_by_row_not_null.spam(kernAS,sum,na.rm=TRUE)
-ASweightsNoT<-apply_by_row_not_null.spam(kernASnoT,sum,na.rm=TRUE)
-SBshares<-SBweights/(ASweights+SBweights)
-SBsharesNoT<-SBweights/(ASweightsNoT+SBweights)
-meanSBshare<-mean(SBshares,na.rm=TRUE)
-meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
-sumSBshares<-sumSBshares+SBshares
+if(use.streets){
+	sumSBshares<-rep(0,length(w))
+	kernSB<-kern(1,SBdist,f)
+	kernAS<-kern(T,ASdist,f)
+	kernASnoT<-kern(1,ASdist,f)
+	SBweights<-apply_by_row_not_null.spam(kernSB,sum,na.rm=TRUE)
+	ASweights<-apply_by_row_not_null.spam(kernAS,sum,na.rm=TRUE)
+	ASweightsNoT<-apply_by_row_not_null.spam(kernASnoT,sum,na.rm=TRUE)
+	SBshares<-SBweights/(ASweights+SBweights)
+	SBsharesNoT<-SBweights/(ASweightsNoT+SBweights)
+	meanSBshare<-mean(SBshares,na.rm=TRUE)
+	meanSBshareNoT<-mean(SBsharesNoT,na.rm=TRUE)
+	sumSBshares<-sumSBshares+SBshares
+}
 #
 
 ## save starting values
@@ -4063,6 +4065,8 @@ est.w<-sum.w/(nbiterations-lastAdaptProp);
 dump("est.w",file=paste("estimated.txt",sep=""),append=TRUE)
 est.yp<-sum.yp/(nbiterations-lastAdaptProp);
 dump("est.yp",file=paste("estimated.txt",sep=""),append=TRUE)
+# save it in db
+db$krigMean<-estMean
 db$p.i <- est.yp
 db$est.u <- est.u
 if(use.v){
@@ -4088,19 +4092,18 @@ attributes(db)$lastBurnIn<-lastBurnIn
 attributes(db)$Kthin<-Kthin
 attributes(db)$freqsave<-freqsave
 attributes(db)$nbiterations<-nbiterations
+
+save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
+
 dev.new()
 par(mfrow=c(2,2))
-with(db,plot_reel(X,Y,obs,base=0,top=1,main="Observed"))
-with(db,plot_reel(X,Y,estMean,base=0,main="Krigged Mean"))
-with(db,plot_reel(X,Y,muPrior,base=-5,top=3,main="prior Mu"))
-with(db,plot_reel(X,Y,p.i,base=0,top=1,main="posterior proba"))
+plot_reel(db$X,db$Y,db$obs,base=0,top=1,main="Observed")
+plot_reel(db$X,db$Y,db$estMean,base=0,main="Krigged Mean")
+plot_reel(db$X,db$Y,db$muPrior,base=-5,top=3,main="prior Mu")
+plot_reel(db$X,db$Y,db$p.i,base=0,top=1,main="posterior proba")
 # in addition can check with 
 # retroPrior<-pnorm(muPrior,0,estSD)
 # with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
-
-
-
-save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
 return(db)
 }
