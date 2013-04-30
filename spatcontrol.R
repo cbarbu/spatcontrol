@@ -218,9 +218,16 @@ removeCol <- function(Table,colNames){
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
-	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
-	return(B);
+
+		B<-as.matrix(mat.or.vec(nr,nc));
+	B[1:(dim(A)[1]),1:(dim(A)[2])]<-as.matrix(A)
+		
+		if(class(A)=="data.frame"){
+					B<-as.data.frame(B)
+			colnames(B) <- colnames(A)	
+				}
+		
+		return(B);
 }
 
 ## improved list of objects with size in memory
