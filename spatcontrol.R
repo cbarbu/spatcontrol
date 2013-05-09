@@ -937,12 +937,14 @@ adjust.lim<-function(limsmall,limbig,steps=NULL,stepsize=NULL){
 	return(list(limsmall=limsmall,limbig=limbig,stepsize=stepsize))
 }
 grid.from.sample<-function(known.x,known.y,known.z,
-	kern=expKernel,f=NULL,T=1,
-	xlim=NULL,
-	ylim=NULL,
-	pixel.size=NULL,
-	steps=NULL,
-	tr=NULL
+	kern=expKernel,  # type of kernel
+	f=NULL, 	# bandwith
+	T=1, 	# not 1 means impact factor of streets
+	xlim=NULL, # artificial limits for the extrapolation
+	ylim=NULL, # idem
+	pixel.size=NULL, # size of the cells in extrapolated
+	steps=NULL, # number of cells on the smaller border
+	tr=NULL # threshold at which the kernels stops
 	){
 	# # tr should always be set
 	# if(is.null(tr)){
