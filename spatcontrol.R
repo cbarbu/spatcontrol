@@ -714,12 +714,16 @@ plot.palette<-function(colVect=palette()){
 #     plot.palette()
 
 class.colors<-function(C,colVect=strongColors){
-  # return a vector of colors corresponding to the values of C understood
-  # as classes 
-  # allow call in plot(...,col=class.colors(C))
-  Cc<-as.factor(C)
-  couleurs<-sample(colVect,length(levels(Cc)),replace=TRUE)
-  return(couleurs[Cc])
+	# return a vector of colors corresponding to the values of C understood
+	# as classes 
+	# allow call in plot(...,col=class.colors(C))
+	Cc<-as.factor(C)
+	nClasses<-length(levels(Cc))
+	nSCneeded<-ceiling(nClasses/length(colVect))
+	couleurs<-rep(colVect,nSCneeded)
+	# needReplace<- nClasses>length(colVect)
+	# couleurs<-sample(colVect,length(levels(Cc)),replace=needReplace)
+	return(couleurs[as.numeric(Cc)])
 }
 plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
   # plot (X,Y) point with colors according to their C classes
@@ -862,7 +866,9 @@ plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,...){
 		zplot(x,y,pch=15,asp=1,zs=0,...)
 		zlines(x,y,pch=15,type="p",col=zcol,cex=0.6,zs=0)
 	}else{
+		if(add==FALSE){
 		plot(x,y,pch=15,asp=1,...)
+		}
 		lines(x,y,pch=15,type="p",col=zcol,cex=0.6)
 	}
 	#zcol
