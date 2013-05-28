@@ -54,6 +54,7 @@ star.on.pvalues<-function(pvalues){
 	return(pcodes)
 }
 
+# compile the .c if needed
 compilLoad<-function(sourcef){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
@@ -218,8 +219,15 @@ removeCol <- function(Table,colNames){
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
+
 	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
+	B[1:(dim(A)[1]),1:(dim(A)[2])]<-as.matrix(A)
+		
+	if(class(A)=="data.frame"){
+		B<-as.data.frame(B)
+		colnames(B) <- colnames(A)	
+	}
+	
 	return(B);
 }
 
@@ -930,12 +938,14 @@ adjust.lim<-function(limsmall,limbig,steps=NULL,stepsize=NULL){
 	return(list(limsmall=limsmall,limbig=limbig,stepsize=stepsize))
 }
 grid.from.sample<-function(known.x,known.y,known.z,
-	kern=expKernel,f=NULL,T=1,
-	xlim=NULL,
-	ylim=NULL,
-	pixel.size=NULL,
-	steps=NULL,
-	tr=NULL
+	kern=expKernel,  # type of kernel
+	f=NULL, 	# bandwith
+	T=1, 	# not 1 means impact factor of streets
+	xlim=NULL, # artificial limits for the extrapolation
+	ylim=NULL, # idem
+	pixel.size=NULL, # size of the cells in extrapolated
+	steps=NULL, # number of cells on the smaller border
+	tr=NULL # threshold at which the kernels stops
 	){
 	# # tr should always be set
 	# if(is.null(tr)){
