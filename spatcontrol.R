@@ -54,6 +54,7 @@ star.on.pvalues<-function(pvalues){
 	return(pcodes)
 }
 
+# compile the .c if needed
 compilLoad<-function(sourcef){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
