@@ -219,8 +219,15 @@ removeCol <- function(Table,colNames){
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
+
 	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
+	B[1:(dim(A)[1]),1:(dim(A)[2])]<-as.matrix(A)
+		
+	if(class(A)=="data.frame"){
+		B<-as.data.frame(B)
+		colnames(B) <- colnames(A)	
+	}
+	
 	return(B);
 }
 
@@ -931,12 +938,14 @@ adjust.lim<-function(limsmall,limbig,steps=NULL,stepsize=NULL){
 	return(list(limsmall=limsmall,limbig=limbig,stepsize=stepsize))
 }
 grid.from.sample<-function(known.x,known.y,known.z,
-	kern=expKernel,f=NULL,T=1,
-	xlim=NULL,
-	ylim=NULL,
-	pixel.size=NULL,
-	steps=NULL,
-	tr=NULL
+	kern=expKernel,  # type of kernel
+	f=NULL, 	# bandwith
+	T=1, 	# not 1 means impact factor of streets
+	xlim=NULL, # artificial limits for the extrapolation
+	ylim=NULL, # idem
+	pixel.size=NULL, # size of the cells in extrapolated
+	steps=NULL, # number of cells on the smaller border
+	tr=NULL # threshold at which the kernels stops
 	){
 	# # tr should always be set
 	# if(is.null(tr)){
@@ -1127,7 +1136,7 @@ structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE
 		values<-raw.values
 	}
 	breaks<-attributes(mats_neigh)$breaks
-	if(length(mats_neigh[[1]])==3){
+	if(!is.null(mats_neigh[[1]]$SBr)){
 		include_streets_anal<-TRUE
 	}else{
 		include_streets_anal<-FALSE
@@ -1236,7 +1245,7 @@ plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
 
 	if(plot){
 	  if(add==FALSE){
-	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3),1.1*max(morans_I1,morans_I2,morans_I3)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Morans's I")
+	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3,na.rm=TRUE),1.1*max(morans_I1,morans_I2,morans_I3,na.rm=TRUE)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Morans's I")
 	    axis(1,at=med_position,labels=legend_position)
 	  }
 	  lines(med_position,morans_I1,col=1) # black general
