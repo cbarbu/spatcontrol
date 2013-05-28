@@ -1244,7 +1244,7 @@ plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
 
 	if(plot){
 	  if(add==FALSE){
-	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3,na.rm=TRUE),1.1*max(morans_I1,morans_I2,morans_I3,na.rm=TRUE)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Morans's I")
+	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3,na.rm=TRUE),1.1*max(morans_I1,morans_I2,morans_I3,na.rm=TRUE)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Moran's I")
 	    axis(1,at=med_position,labels=legend_position)
 	  }
 	  lines(med_position,morans_I1,col=1) # black general
