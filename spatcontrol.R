@@ -104,8 +104,9 @@ expect_equal(firstATrueInB(dat[,1],dat[,2]==1),c(1,0,0,1,0,0)==1)
 # extend the natural logarithm to signed numbers
 # useful for plotting of log(log(likelihood))
 signedLog<-function(signedBigNums){
-      signNum<-sign(signedBigNums)
-      signedLog<-log(abs(signedBigNums))*signNum
+      # signNum<-sign(signedBigNums)
+      # signedLog<-log(abs(signedBigNums))*signNum
+      signedLog<-log(signedBigNums-min(signedBigNums))
       return(signedLog)
 }
 
