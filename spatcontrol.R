@@ -769,8 +769,8 @@ plot.scale <- function(cols,nlev=10,digits=3){
 		polygon(xspoly,yspoly,col=colsPolys[npoly],border=NA)
 	}
 	polygon(xspoly,rep(c(ys[1],ys[nlev+1]),each=2))
-	text(margText,bot,signif(min(xs),digits=digits),pos=4)
-	text(margText,top,signif(max(xs),digits=digits),pos=4)
+	text(margText,bot,signif(min(xs,na.rm=TRUE),digits=digits),pos=4)
+	text(margText,top,signif(max(xs,na.rm=TRUE),digits=digits),pos=4)
 }
 # ex:
 # xs<-rnorm(1000)
