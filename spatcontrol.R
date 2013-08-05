@@ -760,7 +760,7 @@ plot.scale <- function(cols,nlev=10,digits=3){
 	xs<-attr(cols,"xs")
 	bot<-0; top<-10 # do not change these two
 	margText<-0.8
-	plot(bot:top,bot:top,type="n",asp=1,bty="n",axes=FALSE,xlab="",ylab="")
+	plot((bot-1):top,(bot-1):top,type="n",asp=1,bty="n",axes=FALSE,xlab="",ylab="")
 	ys<-seq(bot,top,by=(top-bot)/(nlev))
 	colsPolys<-crp(nlev)
 	xspoly<-c(-0.5,0.5,0.5,-0.5)
