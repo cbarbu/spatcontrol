@@ -734,7 +734,8 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 # plot.classes(db$X,db$Y,db$GroupNum)
 
 # from a vector of real return graduated colors
-xtocolors<-function(x,crp=colorRampPalette(c("blue","green","lightgrey")),inv=FALSE,zcollim=range(x,na.rm=TRUE)){
+xtocolors<-function(x,crp=colorRampPalette(c("yellow","black")),inv=FALSE,zcollim=range(x,na.rm=TRUE)){
+	# previous default crp=colorRampPalette(c("blue","green","lightgrey")
     # make color palette
     zlen <- 150
     colorlut <- crp(zlen) # height color lookup table
@@ -771,6 +772,16 @@ plot.scale <- function(cols,nlev=10,digits=3){
 	text(margText,bot,signif(min(xs),digits=digits),pos=4)
 	text(margText,top,signif(max(xs),digits=digits),pos=4)
 }
+# ex:
+# xs<-rnorm(1000)
+# ys<-rnorm(1000)
+# zs<-dnorm(xs)*dnorm(ys)
+# cols<-xtocolors(zs)
+# par(mfrow=c(1,2))
+# plot(xs,ys,col=cols)
+# plot.scale(cols)
+
+# plot(seq(1,
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
 plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,...){
