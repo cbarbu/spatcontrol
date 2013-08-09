@@ -26,7 +26,7 @@ cleanUnicodes<-function(unicodes){
 ########################
 # plot shapefiles of locality limits
 ########################
-## regenerate the R object file:
+## regenerate the R object file: (from shp files created from kml in qgis)
 # library(maptools)
 # mapLim<-readShapeSpatial("LocalitiesBoundaries/Arequipa_limits")
 # mapLim@data
@@ -41,7 +41,7 @@ cleanUnicodes<-function(unicodes){
 # # set the projection system
 # proj4string(mapLim)<-CRS("+proj=longlat +datum=WGS84")
 
-# save it as a separate file
+# # save it as a separate file
 # save(mapLim,file="ArequipaLim.img")
 
 ## can then be load using simply
