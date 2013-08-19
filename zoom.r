@@ -29,6 +29,30 @@ usenew<-function(ancien,fact,lim){
 	# print(lim)
 	return(lim);
 }
+# to avoid repeating oneself, specially on something quickly changing
+# in case of need for change here, also check "locator" in zoomplot.zoom()
+is.plot.window<-function(alst){
+  ## for former versions of R
+  # tmp2 <- all.equal(.Primitive("plot.window"), fn)
+  # tmp2 <- (length(grep("plot.window",deparse(fn)))>0)
+  ## beginning 3.0.1 
+  tmp2 <- all.equal("C_plot_window",alst[[1]]$name)
+  return(tmp2)
+}
+
+# get the limits of the plot in argument
+getalst<-function(tmp=recordPlot()[[1]]){
+	for (i in seq(along = tmp)) {
+		fn <- tmp[[i]][[1]]
+		alst <- as.list(tmp[[i]][[2]])
+		tmp2<- is.plot.window(alst)
+		if (is.logical(tmp2) && tmp2) {
+			alstwin<-alst
+		}
+	}
+	return(alstwin);
+}
+
 zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,...) 
 {
 	# rp is a recorded plot
@@ -57,42 +81,22 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,...)
 	}
 
 	for (i in seq(along = tmp)) {
+		cat("i:",i,"\n")
 		fn <- tmp[[i]][[1]]
 		alst <- as.list(tmp[[i]][[2]])
-		# tmp2 <- all.equal(.Primitive("locator"), fn)
-		tmp2 <- (length(grep("locator",deparse(fn)))>0)
-		if (is.logical(tmp2) && tmp2) {
-			next
+		tmp1 <- all.equal("C_locator",alst[[1]]$name)
+		if (is.logical(tmp1) && tmp1) {
+			next # will not like do.call
 		}
-		# tmp2 <- all.equal(.Primitive("plot.window"), fn)
-		tmp2 <- (length(grep("plot.window",deparse(fn)))>0)
+		tmp2<- is.plot.window(alst)
 		if (is.logical(tmp2) && tmp2) {
 			# print(alst)
 			# cat("alst orig:",alst[[1]],alst[[2]],"\n")
-			alst[[1]] <- xlimfn(alst[[1]],fact,xlim)
-			alst[[2]] <- ylimfn(alst[[2]],fact,ylim)
+			alst[[2]] <- xlimfn(alst[[2]],fact,xlim)
+			alst[[3]] <- ylimfn(alst[[3]],fact,ylim)
 		}
 		do.call(fn, alst)
 	}
-}
-# get the limits of the plot in argument
-getalst<-function(tmp=recordPlot()[[1]]){
-	for (i in seq(along = tmp)) {
-		fn <- tmp[[i]][[1]]
-		alst <- as.list(tmp[[i]][[2]])
-		# tmp2 <- all.equal(.Primitive("locator"), fn)
-		tmp2 <- (length(grep("locator",deparse(fn)))>0)
-		if (is.logical(tmp2) && tmp2) {
-			next
-		}
-		# tmp2 <- all.equal(.Primitive("plot.window"), fn)
-		tmp2 <- (length(grep("plot.window",deparse(fn)))>0)
-		if (is.logical(tmp2) && tmp2) {
-			alstwin<-alst
-		}
-		# do.call(fn, alst)
-	}
-	return(alstwin);
 }
 
 inout.zoom<-function(...){
