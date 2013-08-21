@@ -156,7 +156,7 @@ labelButton<-function(buttons){
   }else if(buttons==2){# scroll up
       label<-"scrollUp"
   }
-  cat("mevent:",label,"\n")
+  # cat("mevent:",label,"\n")
   return(label)
 }
 devset <- function(){
@@ -169,7 +169,7 @@ mouseDownsqOut <- function(buttons, x, y) {
     starty <<- y
     devset()
     usr <<- par("usr")
-    cat("buttonPress:",buttons,"\n")
+    # cat("buttonPress:",buttons,"\n")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
       zoomDyn(buttons,x,y)
@@ -311,7 +311,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     starty <<- y
     devset()
     usr <<- par("usr")
-    cat("buttonPress:",buttons,"\n")
+    # cat("buttonPress:",buttons,"\n")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
       zoomDyn(buttons,x,y)
@@ -399,7 +399,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     starty <<- y
     devset()
     usr <<- par("usr")
-    cat("buttonPress:",buttons,"\n")
+    # cat("buttonPress:",buttons,"\n")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
       # zoomDyn(buttons,x,y)
@@ -435,7 +435,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     starty <<- y
     devset()
     usr <<- par("usr")
-    cat("buttonPress:",buttons,"\n")
+    # cat("buttonPress:",buttons,"\n")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
       # zoomDyn(buttons,x,y)
@@ -513,14 +513,38 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
   eventEnv <<- getGraphicsEventEnv()
 
 }
-interactive<-function(...){
-  setCallBack()
+navigation.zoom<-function(...){
+  cat("Scroll to zoom\nLeft click to move\nStrike q to quit\n")
   g<-getGraphicsEvent()
 }
-zm<-session.zoom
+zm<-function(type=NULL){
+  if(is.null(type)){
+    test<-try(setCallBack(),silent=TRUE)
+    if(class(test)=="try-error"){
+      cat("Device doesn't support event handling, \nfall back to classical interface.\n")
+      cat("On Linux/Mac use X11(type = \"Xlib\") to enable navigation.\n\n")
 
-
+      type<-"session"
+    }else{
+      type<-"navigation"
+    }
+  }
+    if(length(grep(type,"session"))>0){
+      session.zoom()
+    }else if(length(grep(type,"navigation"))>0){
+      navigation.zoom()
+    }
+}
 # # example:
+# X11(type = "Xlib") # to allow google map like navigation
+# plot(rnorm(1000),rnorm(1000))
+# zm()
+# # to force old behavior
+# zm(type="s")
+
+
+# # example old:
+# plot(runif(1000))
 # plot(runif(1000))
 # abline(0,1)
 # original<-session.zoom()
