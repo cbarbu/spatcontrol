@@ -184,11 +184,12 @@ setNav<-function(){
     yuser<-grconvertY(y, "ndc", "user")
     xlim<<- (1-fact)*xuser+fact*usr[1:2]
     ylim<<- (1-fact)*yuser+fact*usr[3:4]
+    # zoomplot.zoom(fact=fact)
     # cat("fact:",fact,"\n")
     # cat(usr[1:2],"->",xlim,"\n")
     # cat(usr[3:4],"->",ylim,"\n")
     plot(..., xlim = xlim, xaxs = "i",
-	 ylim = ylim, yaxs = "i",pch=".")
+ 	 ylim = ylim, yaxs = "i",pch=".")
     NULL
   }
 
@@ -213,11 +214,10 @@ setNav<-function(){
 	  filterPoint<-filterPoint[grep(currentTriangle[[i]],triangles[filterPoint])]
 	  i<-i+1
   }
-    
 
-    triangles[[length(triangles)+1]]<<-currentTriangle # add it
+  triangles[[length(triangles)+1]]<<-currentTriangle # add it
 
-    polygon(coords$x[currentTriangle],coords$y[currentTriangle]) # plot it
+  polygon(coords$x[currentTriangle],coords$y[currentTriangle]) # plot it
   }
   mouseDownEdit<-function(buttons,x,y){
     startx <<- x
