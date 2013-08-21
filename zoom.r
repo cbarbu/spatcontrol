@@ -19,19 +19,19 @@ multipancPoint<-function(ancien,fact=1,lim,point=NULL){
 
 	return(newRange);
 }
-multipanc<-function(ancien,fact,lim){
+multipanc<-function(ancien,fact,lim,point=NULL){
 	# cat("ancien",ancien,"fact",fact,"lim:\n")
 	# print(lim)
 	meanRange<-mean(ancien)
 	newRange<-ancien+(1/fact-1)*(ancien-meanRange)
 	return(newRange);
 }
-keepanc<-function(ancien,fact,lim){
+keepanc<-function(ancien,fact,lim,point=NULL){
 	# cat("ancien",ancien,"fact",fact,"lim:\n")
 	# print(lim)
 	return(ancien);
 }
-usenew<-function(ancien,fact,lim){
+usenew<-function(ancien,fact,lim,point=NULL){
 	# cat("ancien",ancien,"fact",fact,"lim:\n")
 	# print(lim)
 	return(lim);
@@ -62,7 +62,7 @@ getalst<-function(tmp=recordPlot()[[1]]){
 
 zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NULL,...) 
 {
-  cat("using zoomplot.zoom")
+  # cat("using zoomplot.zoom")
 	# rp is a recorded plot
 	# fact is a factor of magnification/outzoom
 	# fact has priority on xlim/ylim
@@ -163,25 +163,6 @@ devset <- function(){
   if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
 }
 
-zoomDyn <- function(buttons, x, y,...) {
-    devset()
-    mevent<-labelButton(buttons)
-    if(mevent=="scrollDown"){
-      fact<-0.7
-    }else if(mevent=="scrollUp"){
-      fact<-1.5
-    }else {
-      deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
-      fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
-    }
-    cat("fact:",fact,"\n")
-    xlim<<-multipanc(usr[1:2],fact,1) # 1 is dummy
-    ylim<<-multipanc(usr[3:4],fact,1) # 1 is dummy
-    plot(..., xlim = xlim, xaxs = "i",
-	 ylim = ylim, yaxs = "i")
-    NULL
-  }
-
 
 mouseDownsqOut <- function(buttons, x, y) {
     startx <<- x
@@ -280,6 +261,261 @@ session.zoom<-function(...){
 		}
 	}
 	return(recordPlot());
+}
+setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
+  # X11(type = "Xlib")
+
+  # plot(rnorm(100),rnorm(100))
+  startx <- NULL
+  starty <- NULL
+  usr <- NULL
+
+  #---------------------
+  # general functions
+  #---------------------
+  devset <- function(){
+    if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
+  }
+  setNav<-function(){
+    setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
+			     onMouseMove = dragmousemove,
+			     onMouseDown = mouseDownNavig,
+			     onMouseUp = mouseup,
+			     onKeybd = keydown)
+    eventEnv <<- getGraphicsEventEnv()
+  }
+
+  #--------------------
+  # Navigation functions
+  #--------------------
+  multipanc<-function(ancien,fact,lim){
+    # return new range according to ancient range and factor of magnification
+    cat("ancien",ancien,"fact",fact,"lim:\n")
+    # print(lim)
+    meanRange<-mean(ancien)
+    newRange<-ancien+(1/fact-1)*(ancien-meanRange)
+    return(newRange);
+  }
+
+  dragmousedown <- function(buttons, x, y) {
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    eventEnv$onMouseMove <- dragmousemove
+    NULL
+  }
+
+  mouseDownNavig <- function(buttons, x, y) {
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    cat("buttonPress:",buttons,"\n")
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      zoomDyn(buttons,x,y)
+    }else if(mevent=="scrollUp"){ 
+      zoomDyn(buttons,x,y)
+    }else if(mevent=="middle"){ 
+      # cat("Turn on zoomDyn\n")
+      eventEnv$onMouseMove <- zoomDyn
+    }else if(mevent=="left"){ 
+      # cat("Turn on dragmousemove\n")
+      eventEnv$onMouseMove <- dragmousemove
+    }else if(mevent=="right"){ 
+      # cat("Closing...")
+      # return(invisible(1))
+    }
+    NULL
+  }
+
+  dragmousemove <- function(buttons, x, y) {
+    devset()
+    # cat("In dragmousemove\n")
+    deltax <- diff(grconvertX(c(startx, x), "ndc", "user"))
+    deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
+    xlim<<-usr[1:2]-deltax
+    ylim <<-usr[3:4]-deltay
+    zoomplot.zoom(xlim=xlim,ylim=ylim,...)
+    # plot(..., xlim = xlim, xaxs = "i",
+    # 	 ylim = ylim, yaxs = "i",pch=".")
+    NULL
+  }
+  zoomDyn <- function(buttons, x, y) {
+    devset()
+    usr <<- par("usr")
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      fact<-1.5
+    }else if(mevent=="scrollUp"){
+      fact<-0.7
+    }else {
+      deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
+      fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
+    }
+    xuser<-grconvertX(x, "ndc", "user")
+    yuser<-grconvertY(y, "ndc", "user")
+    xlim<<- (1-fact)*xuser+fact*usr[1:2]
+    ylim<<- (1-fact)*yuser+fact*usr[3:4]
+    zoomplot.zoom(fact=fact,x=xuser,y=yuser)
+    # cat("fact:",fact,"\n")
+    # cat(usr[1:2],"->",xlim,"\n")
+    # cat(usr[3:4],"->",ylim,"\n")
+    # plot(..., xlim = xlim, xaxs = "i",
+# 	 ylim = ylim, yaxs = "i",pch=".")
+    NULL
+  }
+
+  mouseup <- function(buttons, x, y) {
+    # plotMesh(coords,triangles, xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs)
+    eventEnv$onMouseMove <- NULL
+    NULL
+  }	
+
+  #--------------------
+  # Modify mesh functions
+  #--------------------
+  addTriangle<-function(){
+    # get the triangle
+    currentTriangle<<-identify(n=3,coords$x,coords$y)
+    # check it is a triangle
+
+    # check it is not an existing triangle
+  i<-1
+  filterPoint<-which(!is.na(triangles))
+  while(length(filterPoint)>0 && i<4 ){
+	  print(filterPoint)
+	  filterPoint<-filterPoint[grep(currentTriangle[[i]],triangles[filterPoint])]
+	  i<-i+1
+  }
+
+  triangles[[length(triangles)+1]]<<-currentTriangle # add it
+
+  polygon(coords$x[currentTriangle],coords$y[currentTriangle]) # plot it
+  }
+  mouseDownEdit<-function(buttons,x,y){
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    cat("buttonPress:",buttons,"\n")
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      # zoomDyn(buttons,x,y)
+    }else if(mevent=="scrollUp"){ 
+      # zoomDyn(buttons,x,y)
+    }else if(mevent=="middle"){ 
+      # cat("Turn on zoomDyn\n")
+      # eventEnv$onMouseMove <- zoomDyn
+    }else if(mevent=="left"){ 
+      beginMovePoint(buttons,x,y)
+    }else if(mevent=="right"){ 
+      # cat("Closing...")
+      # return(invisible(1))
+    }
+    NULL
+  }
+
+  beginMovePoint<-function(buttons,x,y){
+    devset()
+    cat("just before identify currentPoint")
+    x <- grconvertX(x, "ndc", "user")
+    y <- grconvertY(y, "ndc", "user")
+    currentPoint<<-identifyFromPoints(x,y,coords)
+    # currentPoint<<-identify(n=1,coords)
+    text(coords$x[[currentPoint]],coords$y[[currentPoint]],currentPoint)
+    print(currentPoint)
+    eventEnv$onMouseMove<<-NULL
+  }
+  movePoint<-function(buttons,x,y){
+  }
+  mouseUpEdit<-function(buttons,x,y){
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    cat("buttonPress:",buttons,"\n")
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      # zoomDyn(buttons,x,y)
+    }else if(mevent=="scrollUp"){ 
+      # zoomDyn(buttons,x,y)
+    }else if(mevent=="middle"){ 
+      # cat("Turn on zoomDyn\n")
+      # eventEnv$onMouseMove <- zoomDyn
+    }else if(mevent=="left"){ 
+      endMovePoint(buttons,x,y)
+    setNav()
+    }else if(mevent=="right"){ 
+      # cat("Closing...")
+      # return(invisible(1))
+    }
+    NULL
+  }
+
+  endMovePoint <-function(buttons,x,y){
+    devset()
+    cat("just before changing points")
+    cat("coords:",coords$x[[currentPoint]],",",coords$y[[currentPoint]],"\n")
+    x <- grconvertX(x, "ndc", "user")
+    y <- grconvertY(y, "ndc", "user")
+    coords$x[[currentPoint]]<<-x
+    coords$y[[currentPoint]]<<-y
+    cat("coords:",coords$x[[currentPoint]],",",coords$y[[currentPoint]],"\n")
+    # plotMesh(coords,triangles, xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs)
+    eventEnv$onMouseMove <- NULL
+  }
+
+  #===============================
+  # Keyboard mode commuter
+  #===============================
+
+    keydown <- function(key) {
+    if (key == "q") return(invisible(1))
+    if (key == "n") {
+      cat("navigation mode")
+      setNav()
+      
+    }else if (key == "e") {
+      cat("editing mode")
+      setGraphicsEventHandlers(prompt = "Editing mode",
+			       onMouseMove = NULL,
+			       onMouseDown = mouseDownEdit,
+			       onMouseUp = mouseUpEdit,
+			       onKeybd = keydown)
+      eventEnv <<- getGraphicsEventEnv()
+    }else if (key == "t") {
+      setGraphicsEventHandlers(prompt = "Editing mode",
+			       onMouseMove = NULL,
+			       onMouseDown = mouseDownNavig,
+			       onMouseUp = mouseup,
+			       onKeybd = keydown)
+      eventEnv <<- getGraphicsEventEnv()
+
+      addTriangle()
+    }
+    NULL
+  }
+
+  setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
+			   onMouseDown = mouseDownNavig,
+			   onMouseUp = mouseup,
+			   onMouseMove = NULL,
+			   onKeybd = keydown)
+
+#   setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
+# 			   onMouseDown = dragmousedown,
+# 			   onMouseUp = mouseup,
+# 			   onKeybd = keydown)
+# 
+
+  eventEnv <<- getGraphicsEventEnv()
+
+}
+interactive<-function(...){
+  setCallBack()
+  g<-getGraphicsEvent()
 }
 zm<-session.zoom
 
