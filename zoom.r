@@ -11,7 +11,14 @@
 library(Hmisc); # for errbar
 
 zoom_loaded<-1
+multipancPoint<-function(ancien,fact=1,lim,point=NULL){
+	# cat("ancien",ancien,"fact",fact,"lim:\n")
+	# print(lim)
+  	if(is.null(point)) point<-mean(ancien)
+	newRange<- (1-fact)*point+fact*ancien
 
+	return(newRange);
+}
 multipanc<-function(ancien,fact,lim){
 	# cat("ancien",ancien,"fact",fact,"lim:\n")
 	# print(lim)
@@ -53,14 +60,15 @@ getalst<-function(tmp=recordPlot()[[1]]){
 	return(alstwin);
 }
 
-zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,...) 
+zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NULL,...) 
 {
+  cat("using zoomplot.zoom")
 	# rp is a recorded plot
 	# fact is a factor of magnification/outzoom
 	# fact has priority on xlim/ylim
 	if(! is.null(fact)&& is.numeric(fact) && length(fact)==1){
-		xlimfn <-multipanc;
-		ylimfn <-multipanc;
+		xlimfn <-multipancPoint;
+		ylimfn <-multipancPoint;
 	}else{
 		if(!is.null(xlim)&& is.numeric(xlim) && length(xlim)==2){
 			xlimfn <- usenew;
@@ -81,7 +89,7 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,...)
 	}
 
 	for (i in seq(along = tmp)) {
-		cat("i:",i,"\n")
+		# cat("i:",i,"\n")
 		fn <- tmp[[i]][[1]]
 		alst <- as.list(tmp[[i]][[2]])
 		tmp1 <- all.equal("C_locator",alst[[1]]$name)
@@ -92,8 +100,8 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,...)
 		if (is.logical(tmp2) && tmp2) {
 			# print(alst)
 			# cat("alst orig:",alst[[1]],alst[[2]],"\n")
-			alst[[2]] <- xlimfn(alst[[2]],fact,xlim)
-			alst[[3]] <- ylimfn(alst[[3]],fact,ylim)
+			alst[[2]] <- xlimfn(alst[[2]],fact,xlim,x)
+			alst[[3]] <- ylimfn(alst[[3]],fact,ylim,y)
 		}
 		do.call(fn, alst)
 	}
@@ -131,6 +139,99 @@ out.zoom<-function(...){
 orig.zoom<-function(orig){
 	replayPlot(orig)
 	return()
+}
+labelButton<-function(buttons){
+  # label the buttons with easy to remember names
+  label<-""
+  if(length(buttons)==2){ # rightbutton or scrolling
+    if(buttons[2]==2){ # scroll down
+      label<-"scrollDown"
+    }else if(buttons[2]==1){ # right button
+      label<-"right"
+    }
+  }else if(buttons==1){ # middle button
+      label<-"middle"
+  }else if(buttons==0){
+      label<-"left"
+  }else if(buttons==2){# scroll up
+      label<-"scrollUp"
+  }
+  cat("mevent:",label,"\n")
+  return(label)
+}
+devset <- function(){
+  if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
+}
+
+zoomDyn <- function(buttons, x, y,...) {
+    devset()
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      fact<-0.7
+    }else if(mevent=="scrollUp"){
+      fact<-1.5
+    }else {
+      deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
+      fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
+    }
+    cat("fact:",fact,"\n")
+    xlim<<-multipanc(usr[1:2],fact,1) # 1 is dummy
+    ylim<<-multipanc(usr[3:4],fact,1) # 1 is dummy
+    plot(..., xlim = xlim, xaxs = "i",
+	 ylim = ylim, yaxs = "i")
+    NULL
+  }
+
+
+mouseDownsqOut <- function(buttons, x, y) {
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    cat("buttonPress:",buttons,"\n")
+    mevent<-labelButton(buttons)
+    if(mevent=="scrollDown"){
+      zoomDyn(buttons,x,y)
+    }else if(mevent=="scrollUp"){ 
+      zoomDyn(buttons,x,y)
+    }else if(mevent=="middle"){ 
+      # cat("Turn on zoomDyn\n")
+      eventEnv$onMouseMove <- zoomDyn
+    }else if(mevent=="left"){ 
+      # cat("Turn on dragmousemove\n")
+      eventEnv$onMouseMove <- dragmousemove
+    }else if(mevent=="right"){ 
+      # cat("Closing...")
+      # return(invisible(1))
+    }
+    NULL
+  }
+
+mouseup <- function(buttons, x, y) {
+  # plotMesh(coords,triangles, xlim = xlim, ylim = ylim, xaxs = xaxs, yaxs = yaxs)
+  eventEnv$onMouseMove <- NULL
+}	
+keydown <- function(key) {
+    
+    NULL
+  }
+
+
+sqvsCallBack<-function(...){
+    setGraphicsEventHandlers(prompt = "Zoom in and out, hit Esc to quit",
+			     onMouseMove = NULL,
+			     onMouseDown = mouseDownsqOut,
+			     onMouseUp = mouseup,
+			     onKeybd = keydown)
+    eventEnv <<- getGraphicsEventEnv()
+}
+sqvsOut.zoom<-function(...){
+	cat("Click left over opposite corners of zoom area.\n");
+	cat("Click right for zoom out.\n")
+	cat("Hit Esc to exit\n")
+	sqvsCallBack()
+
+	g<-getGraphicsEvent()
 }
 sq.zoom<-function(...){
 	# use locator to zoom with the mouse (two left clicks)
