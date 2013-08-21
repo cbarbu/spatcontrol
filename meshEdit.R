@@ -173,24 +173,20 @@ setNav<-function(){
     usr <<- par("usr")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
-      fact<-0.7
-    }else if(mevent=="scrollUp"){
       fact<-1.5
+    }else if(mevent=="scrollUp"){
+      fact<-0.7
     }else {
       deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
       fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
     }
-    # deltax <- diff(grconvertX(c(mean(usr[1:2]), x), "ndc", "user"))
-    # deltay <- diff(grconvertY(c(mean(usr[3:4]), y), "ndc", "user"))
     xuser<-grconvertX(x, "ndc", "user")
     yuser<-grconvertY(y, "ndc", "user")
-    deltax<-xuser-mean(usr[1:2])
-    deltay<-yuser-mean(usr[3:4])
-    cat("fact:",fact,"\n")
-    xlim<<-multipanc(usr[1:2]+deltax,fact,1) # 1 is dummy
-    ylim<<-multipanc(usr[3:4]+deltay,fact,1) # 1 is dummy
-    cat(usr[1:2],"+",deltax,"->",xlim,"\n")
-    cat(usr[3:4],"+",deltay,"->",ylim,"\n")
+    xlim<<- (1-fact)*xuser+fact*usr[1:2]
+    ylim<<- (1-fact)*yuser+fact*usr[3:4]
+    # cat("fact:",fact,"\n")
+    # cat(usr[1:2],"->",xlim,"\n")
+    # cat(usr[3:4],"->",ylim,"\n")
     plot(..., xlim = xlim, xaxs = "i",
 	 ylim = ylim, yaxs = "i",pch=".")
     NULL
