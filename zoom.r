@@ -307,8 +307,8 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
   eventEnv <<- getGraphicsEventEnv()
 }
 navigation.zoom<-function(...){
-  cat("Scroll to zoom\nLeft click to move\nq to quit\n")
-  g<-getGraphicsEvent()
+  cat("Scroll to zoom\nLeft click to move\n")
+  g<-getGraphicsEvent(consolePrompt="q on the graphic window to quit")
 }
 # try to replot the graph into a Xlib device to allow events handling
 XlibReplot<-function(rp=NULL){
