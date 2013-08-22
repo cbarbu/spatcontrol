@@ -1,4 +1,3 @@
-# allow to to zoom on last existing plot using zm()
 # optionally, graphs can be plotted with zplot and lines with zlines
 # allowing to go back and forth with bf()
 
@@ -11,25 +10,24 @@
 #=============================
 # Navigation "session"
 #=============================
-zoom_loaded<-1
-multipancPoint<-function(ancien,fact=1,lim,point=NULL){
-	# cat("ancien",ancien,"fact",fact,"lim:\n")
-	# print(lim)
+multipancPoint<-function(ancien,fact=1,new,point=NULL){
+	# cat("ancien",ancien,"fact",fact,"new:\n")
+	# print(new)
   	if(is.null(point)) point<-mean(ancien)
 	fact<-1/fact
 	newRange<- (1-fact)*point+fact*ancien
 
 	return(newRange);
 }
-keepanc<-function(ancien,fact,lim,point=NULL){
-	# cat("ancien",ancien,"fact",fact,"lim:\n")
-	# print(lim)
+keepanc<-function(ancien,fact,new,point=NULL){
+	# cat("ancien",ancien,"fact",fact,"new:\n")
+	# print(new)
 	return(ancien);
 }
-usenew<-function(ancien,fact,lim,point=NULL){
-	# cat("ancien",ancien,"fact",fact,"lim:\n")
-	# print(lim)
-	return(lim);
+usenew<-function(ancien,fact,new,point=NULL){
+	# cat("ancien",ancien,"fact",fact,"new:\n")
+	# print(new)
+	return(new);
 }
 # to avoid repeating oneself, specially on something quickly changing
 # in case of need for change here, also check "locator" in zoomplot.zoom()
@@ -83,6 +81,7 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NUL
 		tmp<-rp[[1]]
 	}
 
+	plotOk<-NULL
 	for (i in seq(along = tmp)) {
 		# cat("i:",i,"\n")
 		fn <- tmp[[i]][[1]]
@@ -210,10 +209,6 @@ labelButton<-function(buttons){
   # cat("mevent:",label,"\n")
   return(label)
 }
-devset <- function(){
-  if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
-}
-
 
 setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
   startx <- NULL
@@ -223,8 +218,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
   #---------------------
   # Navigation functions
   #---------------------
- 
-  dragmousemove <- function(buttons, x, y) {
+    dragmousemove <- function(buttons, x, y) {
     devset()
     # cat("In dragmousemove\n")
     deltax <- diff(grconvertX(c(startx, x), "ndc", "user"))
@@ -302,7 +296,11 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
 			   onMouseMove = NULL,
 			   onKeybd = keydown)
 
-  eventEnv <<- getGraphicsEventEnv()
+  eventEnv <- getGraphicsEventEnv()
+
+  devset <- function(){
+    if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
+  }
 }
 navigation.zoom<-function(...){
   cat("Scroll to zoom\nLeft click to move\n")
