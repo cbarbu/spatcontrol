@@ -103,7 +103,10 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NUL
 			alst[[2]] <- xlimfn(alst[[2]],fact,xlim,x)
 			alst[[3]] <- ylimfn(alst[[3]],fact,ylim,y)
 		}
-		do.call(fn, alst)
+		plotOk<-try(do.call(fn, alst))
+	}
+	if(class(plotOk)=="try-error"){
+	   box() # finish the graph even if errors in between
 	}
 }
 
@@ -143,7 +146,9 @@ orig.zoom<-function(orig){
 labelButton<-function(buttons){
   # label the buttons with easy to remember names
   label<-""
-  if(length(buttons)==2){ # rightbutton or scrolling
+# cat("buttons:")
+# print(buttons)
+  if(length(buttons)>=2){ # rightbutton or scrolling
     if(buttons[2]==2){ # scroll down
       label<-"scrollDown"
     }else if(buttons[2]==1){ # right button
@@ -277,7 +282,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     if (dev.cur() != eventEnv$which) dev.set(eventEnv$which)
   }
   setNav<-function(){
-    setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
+    setGraphicsEventHandlers(prompt = "Scroll Zoom, click and drag, q to quit",
 			     onMouseMove = dragmousemove,
 			     onMouseDown = mouseDownNavig,
 			     onMouseUp = mouseup,
@@ -504,27 +509,41 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
 			   onMouseMove = NULL,
 			   onKeybd = keydown)
 
-#   setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
-# 			   onMouseDown = dragmousedown,
-# 			   onMouseUp = mouseup,
-# 			   onKeybd = keydown)
-# 
-
   eventEnv <<- getGraphicsEventEnv()
-
 }
 navigation.zoom<-function(...){
-  cat("Scroll to zoom\nLeft click to move\nStrike q to quit\n")
+  cat("Scroll to zoom\nLeft click to move\nq to quit\n")
   g<-getGraphicsEvent()
 }
-zm<-function(type=NULL){
+# try to replot the graph into a Xlib device to allow events handling
+XlibReplot<-function(rp=NULL){
+	if(is.null(rp)){
+		rp <- recordPlot()
+	}
+
+	X11(type = "Xlib")
+	try(replayPlot(rp),silent=TRUE)
+	test<-try(setCallBack(),silent=TRUE)
+	return(test)
+}
+
+# Main function, choosing between navigation or old "session" interactions
+zm<-function(type=NULL,rp=NULL){
   if(is.null(type)){
     test<-try(setCallBack(),silent=TRUE)
     if(class(test)=="try-error"){
-      cat("Device doesn't support event handling, \nfall back to classical interface.\n")
-      cat("On Linux/Mac use X11(type = \"Xlib\") to enable navigation.\n\n")
+      cat("Device doesn't support event handling. \nTrying to replot in new interface.\n")
+      test<-XlibReplot(rp=rp)
+      if(class(test)=="try-error"){
+	      dev.off()
+	      cat("Fall back to classical interface.\n")
+	      cat("On Linux/Mac use X11(type = \"Xlib\") to enable navigation.\n\n")
 
-      type<-"session"
+	      type<-"session"
+      }else{
+	      cat("Replot sucessful, use X11(type = \"Xlib\") to avoid this step.\n")
+	      type<-"navigation"
+      }
     }else{
       type<-"navigation"
     }
@@ -535,6 +554,12 @@ zm<-function(type=NULL){
       navigation.zoom()
     }
 }
+# need to check possibility to 
+# orig <- recordPlot()
+# X11(type = "Xlib")
+# replayPlot(orig)
+
+
 # # example:
 # X11(type = "Xlib") # to allow google map like navigation
 # plot(rnorm(1000),rnorm(1000))
