@@ -18,6 +18,7 @@ multipancPoint<-function(ancien,fact=1,lim,point=NULL){
 	# cat("ancien",ancien,"fact",fact,"lim:\n")
 	# print(lim)
   	if(is.null(point)) point<-mean(ancien)
+	fact<-1/fact
 	newRange<- (1-fact)*point+fact*ancien
 
 	return(newRange);
@@ -240,9 +241,9 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     usr <<- par("usr")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
-      fact<-1.5
-    }else if(mevent=="scrollUp"){
       fact<-0.7
+    }else if(mevent=="scrollUp"){
+      fact<-1.5
     }else {
       deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
       fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
@@ -273,7 +274,7 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
     }else if(mevent=="left"){ 
       # cat("Turn on dragmousemove\n")
       eventEnv$onMouseMove <- dragmousemove
-    }else if(mevent=="right"){ # quit on right click, problematic on touch pads
+    }else if(mevent=="right"){ 
       # cat("Closing...")
       # return(invisible(1))
     }
