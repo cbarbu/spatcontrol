@@ -120,7 +120,7 @@ in.zoom<-function(...){
 
   center<-locator(1)
   if(length(center$x)==1){
-    zoomplot.zoom(fact=2,...);
+    zoomplot.zoom(fact=2,x=center$x,y=center$y,...);
     in.zoom()
   }
   return()
@@ -131,7 +131,7 @@ out.zoom<-function(...){
   cat("Right click for other options\n")
   center<-locator(1)
   if(length(center$x)==1){
-    zoomplot.zoom(fact=0.5,...);
+    zoomplot.zoom(fact=0.5,x=center$x,y=center$y,...);
     out.zoom()
   }
   return()
