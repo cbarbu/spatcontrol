@@ -6,8 +6,14 @@
 Zoom/navigate any plot directly in R.
 }
 \description{
-The single zm() function allows to launch an interactive session with any active plot.
-See ?zm for details.
+The single zm() function allows to launch an interactive viewing session with any plot. You can zoom in and out and move the scope (just as in Google maps). Additionally, if a device contains several plots it will simultanuously navigate all the plots.
+
+It fully works under Windows and Linux. 
+
+On Mac it fully works if launching R from the Xquartz terminal.
+It will default to the "session" mode if launched from Rgui. R launched from the system terminal may have a problem with X11 fonts that prevents even the simplest plots to be executed well, it will not get any better with this package.
+
+See ?zm for more details on how to use.
 }
 \details{
 \tabular{ll}{
