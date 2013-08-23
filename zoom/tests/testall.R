@@ -1,3 +1,2 @@
 library("testthat")
-# test_package("zoom") # not to use when some tests are graphics
-source("../inst/tests/test_zoom.R")
+test_package("zoom",filter="-check") # not to use when some tests are graphics
