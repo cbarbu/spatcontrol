@@ -40,10 +40,13 @@ is.plot.window<-function(alst,fn){
   Min<-as.numeric(version$minor)
   if(Maj>=3 & Min>= 0.1){
     tmp <- all.equal("C_plot_window",alst[[1]]$name)
+    attributes(tmp)$lims<-c(2,3)
   }else if(Maj==3 & Min <=0.1){
     tmp <- (length(grep("plot.window",deparse(fn)))>0)
+    attributes(tmp)$lims<-c(1,2)
   }else if(Maj<3){
     tmp <- all.equal(.Primitive("plot.window"), fn)
+    attributes(tmp)$lims<-c(1,2)
   }
   return(tmp)
 }
@@ -117,8 +120,10 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NUL
 		if (is.logical(tmp2) && tmp2) {
 			# print(alst)
 			# cat("alst orig:",alst[[1]],alst[[2]],"\n")
-			alst[[2]] <- xlimfn(alst[[2]],fact,xlim,x)
-			alst[[3]] <- ylimfn(alst[[3]],fact,ylim,y)
+			locx<-attributes(tmp2)$lims[1]
+			locy<-attributes(tmp2)$lims[2]
+			alst[[locx]] <- xlimfn(alst[[locx]],fact,xlim,x)
+			alst[[locy]] <- ylimfn(alst[[locy]],fact,ylim,y)
 		}
 		plotOk<-try(do.call(fn, alst))
 	}
@@ -338,7 +343,7 @@ XlibReplot<-function(rp=NULL){
 	}
 	initDev<-dev.cur()
 
-	try(X11(type = "Xlib"))
+	try(X11(type = "Xlib"),silent=TRUE)
 	testOk<-class(try(replayPlot(rp),silent=TRUE))!="try-error"
 	if(testOk){
 		test<-class(try(setCallBack(),silent=TRUE))!="try-error"
