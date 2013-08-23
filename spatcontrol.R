@@ -12,6 +12,7 @@ library(locfit)
 library("binom")
 library(fields)
 library(boa)
+library("zoom") # as build by R CMD build zoom/
 
 source("project_specific.R")
 
@@ -699,7 +700,8 @@ pseudo_inv<-function(A){
 #--------------------------------------
 # Plotting
 #--------------------------------------
-source("zoom.r") # this should a separate package
+# source("zoom.r") # this should a separate package
+source("bfplot.R")
 
 strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","purple","yellow","grey","orange","slategrey","navyblue","darkgreen")
 

@@ -1,4 +1,5 @@
 library(Hmisc); # for errbar
+zoom_loaded<-TRUE
 
 ord.zoom<-list()
 num.zoom<-0
