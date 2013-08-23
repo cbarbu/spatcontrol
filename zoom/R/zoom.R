@@ -336,11 +336,19 @@ XlibReplot<-function(rp=NULL){
 	if(is.null(rp)){
 		rp <- recordPlot()
 	}
+	initDev<-dev.cur()
 
 	try(X11(type = "Xlib"))
-	try(replayPlot(rp),silent=TRUE)
-	test<-try(setCallBack(),silent=TRUE)
-	return(test)
+	testOk<-class(try(replayPlot(rp),silent=TRUE))!="try-error"
+	if(testOk){
+		test<-class(try(setCallBack(),silent=TRUE))!="try-error"
+	}else{
+		if(dev.cur()!=initDev){
+			dev.off()
+		}
+	}
+
+	return(testOk)
 }
 
 # Main function, choosing between navigation or old "session" interactions
@@ -349,9 +357,8 @@ zm<-function(type=NULL,rp=NULL){
     test<-try(setCallBack(),silent=TRUE)
     if(class(test)=="try-error"){
       cat("Device doesn't support event handling. \nTrying to replot in new interface.\n")
-      test<-XlibReplot(rp=rp)
-      if(class(test)=="try-error"){
-	      dev.off()
+      testOk<-XlibReplot(rp=rp)
+      if(!testOk){
 	      cat("Fall back to classical interface.\n")
 	      cat("On Linux/Mac use X11(type = \"Xlib\") to enable navigation.\n\n")
 
