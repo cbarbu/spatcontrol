@@ -21,12 +21,12 @@ Used for all analysis of the events in navigation.zoom
 The returned values should be self-explaining.
 }
 \value{
-The returned values can be:
-- left (left button of the mouse)
-- right (right button of the mouse)
-- middle (middle button or scrolling will *pressed*)
-- scrollDown (scrolling weel turned down)
-- scrollUp (scrolling weel turned up)
+The returned value is a string that can be:
+\item{left}{ left button of the mouse}
+\item{right}{ right button of the mouse}
+\item{middle}{ middle button or scrolling will *pressed*}
+\item{scrollDown}{ scrolling weel turned down}
+\item{scrollUp}{ scrolling weel turned up}
 }
 \author{
 Corentin M. Barbu

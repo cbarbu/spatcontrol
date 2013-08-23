@@ -13,7 +13,7 @@ It fully works under Windows and Linux.
 On Mac it fully works if launching R from the Xquartz terminal.
 It will default to the "session" mode if launched from Rgui. R launched from the system terminal may have a problem with X11 fonts that prevents even the simplest plots to be executed well, it will not get any better with this package.
 
-See ?zm for more details on how to use.
+See help(zm) for more details on how to use the package.
 }
 \details{
 \tabular{ll}{
@@ -23,15 +23,19 @@ Version: \tab 2.0\cr
 Date: \tab 2013-08-22\cr
 License: \tab LGPL\cr
 }
-The only function end users should ever use is zm(). It orchestrate the access to other functions like :
-- navigation.zoom(): launch a mouse interaction
-- session.zoom(): launch a console menu interaction
+The only function end users should ever use is zm(). It orchestrate the access to other functions like:
+\itemize{
+\item{navigation.zoom(): }{launch a mouse interaction}
+\item{session.zoom(): }{launch a console menu interaction}
+}
 Themselves orchestrating lower level functions:
-- in.zoom(): zoom in
-- out.zoom(): zoom out
-- inout.zoom(): zoom to a magnification factor
-- sq.zoom(): zoom on a user defined square
-- zoomplot.zoom(): the heart function reploting everything as directed by higher level functions.
+\itemize{
+\item{in.zoom(): }{zoom in}
+\item{out.zoom(): }{zoom out}
+\item{inout.zoom(): }{zoom to a magnification factor}
+\item{sq.zoom(): }{zoom on a user defined square}
+\item{zoomplot.zoom(): }{the heart function reploting everything as directed by higher level functions.}
+}
 }
 \author{
 Corentin M. Barbu

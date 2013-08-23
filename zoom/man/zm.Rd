@@ -14,8 +14,10 @@ zm(type = NULL, rp = NULL)
 \arguments{
   \item{type}{
 	type: the type of interaction with the plot. Possible types are:
-	- "session" for console menu) 
-        - "navigation" for mouse interaction mouse
+	\itemize{
+	\item{session}{ for console menu}
+        \item{navigation}{ for mouse interaction mouse}
+	}
 	Or any short names for these. By default will try to launch a "navigation" session.
 }
   \item{rp}{
@@ -65,10 +67,9 @@ zm() # it flickers quite a bit as it needs to replot everything every time...
 # one might want to use the older interface
 # if attached to cairo under linux or MacOS
 # it is also sometimes helpful to just define a square you want to zoom on
-## Not run:
-# zm(type="s") # cannot uncomment that and pass CRAN tests
-## End(Not run)
-
+\dontrun{
+zm(type="s") 
+}
 }
 % Add one or more standard keywords, see file 'KEYWORDS' in the
 % R documentation directory.
