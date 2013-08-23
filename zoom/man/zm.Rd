@@ -13,7 +13,7 @@ zm(type = NULL, rp = NULL)
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{type}{
-	type: the type of interaction with the plot. Possible types are:
+	the type of interaction with the plot. Possible types are:
 	\itemize{
 	\item{session}{ for console menu}
         \item{navigation}{ for mouse interaction mouse}
@@ -21,7 +21,7 @@ zm(type = NULL, rp = NULL)
 	Or any short names for these. By default will try to launch a "navigation" session.
 }
   \item{rp}{
-	rp: ready to replay plot, saved using "rp<-recordPlot()". By default will use the current device.
+	ready to replay plot, saved using "rp<-recordPlot()". By default will use the current device.
 }
 }
 \details{
