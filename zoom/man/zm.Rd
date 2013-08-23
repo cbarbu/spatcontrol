@@ -5,7 +5,12 @@
 Launch zoom session
 }
 \description{
-Allow to zoom/navigate in any open plot. 
+Allow to zoom/navigate in any open plot. The controls should be intuitive:
+\itemize{
+\item{zoom in: }{scroll up, or right click if no scrolling weel.}
+\item{zoom out: }{scroll down, or double click if no scrolling weel.}
+\item{move: }{left click and move}
+}
 }
 \usage{
 zm(type = NULL, rp = NULL)
@@ -21,16 +26,16 @@ zm(type = NULL, rp = NULL)
 	Or any short names for these. By default will try to launch a "navigation" session.
 }
   \item{rp}{
-	ready to replay plot, saved using "rp<-recordPlot()". By default will use the current device.
+	plot to navigate, saved using \code{rp<-recordPlot()}. By default (NULL) will use the current device.
 }
 }
 \details{
-	By default, zm() try to open a mouse interactive session. If the current device is not interactive, will try to replot the current plot in a X11(type="Xlib") device. If it fails it will open a console menu based interactive session.
+	By default, zm() try to open a mouse interactive session. If the current device is not interactive, will try to replot the current plot in a \code{X11(type="Xlib")} device. If it fails it will open a console menu based interactive session.
 
 	Zoom handle multiple plots on a device together. You need to navigate the last one plotted and all the other plots will be navigated according to the last one: that can be pretty amazing too if you want to explore multiple layers at the same time.
 }
 \value{
-	The recording of the final plot. Can be reploted using replayPlot(). The most useful is to get the xlim and ylim of the final plot. That can be simply got using: par("usr") after zm() ends. 
+	The recording of the final plot. Can be reploted using replayPlot(). The most useful may be to get the xlim and ylim of the final plot. That can be simply got using: \code{par("usr")} after \code{zm()} ends. 
 	
 }
 \author{

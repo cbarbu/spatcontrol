@@ -37,6 +37,11 @@ Themselves orchestrating lower level functions:
 \item{zoomplot.zoom(): }{the heart function reploting everything as directed by higher level functions.}
 }
 }
+\note{
+This package is maintained as part of the wider spatcontrol project on github: https://github.com/cbarbu/spatcontrol
+
+Bug reports/suggestions/patches can be directly submitted in this web interface.
+}
 \author{
 Corentin M. Barbu
 
