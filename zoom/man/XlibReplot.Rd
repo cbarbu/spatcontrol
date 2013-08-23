@@ -2,6 +2,7 @@
 \alias{XlibReplot}
 \alias{getalst}
 \alias{is.plot.window}
+\alias{is.locator}
 \alias{keepanc}
 \alias{usenew}
 \alias{setCallBack}
@@ -18,7 +19,8 @@ Different functions, should not be used by end users, definitions may change in 
 \usage{
 XlibReplot(rp = NULL)
 getalst(tmp=recordPlot()[[1]])
-is.plot.window(alst)
+is.plot.window(alst,fn)
+is.locator(alst,fn)
 keepanc(ancien,fact,new,point=NULL)
 usenew(ancien,fact,new,point=NULL)
 setCallBack(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r")
@@ -35,6 +37,9 @@ multipancPoint(ancien,fact=1,new,point=NULL)
 }
   \item{alst}{
 	Arguments part of an item in an recorded plot object.
+}
+  \item{fn}{
+	Function part of an item in an recorded plot object.
 }
   \item{ancien}{
 	ancien set of coordinates

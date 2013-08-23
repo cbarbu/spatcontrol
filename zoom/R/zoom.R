@@ -31,13 +31,36 @@ usenew<-function(ancien,fact,new,point=NULL){
 }
 # to avoid repeating oneself, specially on something quickly changing
 # in case of need for change here, also check "locator" in zoomplot.zoom()
-is.plot.window<-function(alst){
+is.plot.window<-function(alst,fn){
   ## for former versions of R
-  # tmp2 <- all.equal(.Primitive("plot.window"), fn)
-  # tmp2 <- (length(grep("plot.window",deparse(fn)))>0)
+  # tmp <- all.equal(.Primitive("plot.window"), fn)
+  # tmp <- (length(grep("plot.window",deparse(fn)))>0)
+  version<-sessionInfo()$R.version
+  Maj<-as.numeric(version$major)
+  Min<-as.numeric(version$minor)
+  if(Maj>=3 & Min>= 0.1){
+    tmp <- all.equal("C_plot_window",alst[[1]]$name)
+  }else if(Maj==3 & Min <=0.1){
+    tmp <- (length(grep("plot.window",deparse(fn)))>0)
+  }else if(Maj<3){
+    tmp <- all.equal(.Primitive("plot.window"), fn)
+  }
+  return(tmp)
+}
+is.locator<-function(alst,fn){
+  ## for former versions of R
   ## beginning 3.0.1 
-  tmp2 <- all.equal("C_plot_window",alst[[1]]$name)
-  return(tmp2)
+  version<-sessionInfo()$R.version
+  Maj<-as.numeric(version$major)
+  Min<-as.numeric(version$minor)
+  if(Maj>=3 & Min>= 0.1){
+    tmp <- all.equal("C_locator",alst[[1]]$name)
+  }else if(Maj==3 & Min <=0.1){
+    tmp <- (length(grep("locator",deparse(fn)))>0)
+  }else if(Maj<3){
+    tmp <- all.equal(.Primitive("locator"), fn)
+  }
+  return(tmp)
 }
 
 # get the limits of the plot in argument
@@ -45,7 +68,7 @@ getalst<-function(tmp=recordPlot()[[1]]){
 	for (i in seq(along = tmp)) {
 		fn <- tmp[[i]][[1]]
 		alst <- as.list(tmp[[i]][[2]])
-		tmp2<- is.plot.window(alst)
+		tmp2<- is.plot.window(alst,fn)
 		if (is.logical(tmp2) && tmp2) {
 			alstwin<-alst
 		}
@@ -86,11 +109,11 @@ zoomplot.zoom <- function (xlim=NULL, ylim = NULL,fact=NULL,rp=NULL,x=NULL,y=NUL
 		# cat("i:",i,"\n")
 		fn <- tmp[[i]][[1]]
 		alst <- as.list(tmp[[i]][[2]])
-		tmp1 <- all.equal("C_locator",alst[[1]]$name)
+		tmp1 <- is.locator(alst,fn)
 		if (is.logical(tmp1) && tmp1) {
 			next # will not like do.call
 		}
-		tmp2<- is.plot.window(alst)
+		tmp2<- is.plot.window(alst,fn)
 		if (is.logical(tmp2) && tmp2) {
 			# print(alst)
 			# cat("alst orig:",alst[[1]],alst[[2]],"\n")
@@ -314,7 +337,7 @@ XlibReplot<-function(rp=NULL){
 		rp <- recordPlot()
 	}
 
-	X11(type = "Xlib")
+	try(X11(type = "Xlib"))
 	try(replayPlot(rp),silent=TRUE)
 	test<-try(setCallBack(),silent=TRUE)
 	return(test)
@@ -343,9 +366,9 @@ zm<-function(type=NULL,rp=NULL){
   }
   out<-NULL
     if(length(grep(type,"session"))>0){
-      out<-session.zoom()
+      try(out<-session.zoom())
     }else if(length(grep(type,"navigation"))>0){
-      out<-navigation.zoom()
+      try(out<-navigation.zoom())
     }
     return(out)
 }
