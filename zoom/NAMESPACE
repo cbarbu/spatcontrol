@@ -1,1 +1,7 @@
-exportPattern("^[[:alpha:]]+")
+export(in.zoom)
+export(navigation.zoom)
+export(out.zoom)
+export(sq.zoom)
+export(zm)
+export(zoomplot.zoom)
+import(tools)

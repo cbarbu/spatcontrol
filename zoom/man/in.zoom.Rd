@@ -1,35 +1,40 @@
 \name{in.zoom}
 \alias{in.zoom}
 \alias{out.zoom}
-\alias{inout.zoom}
+\alias{set.zoom}
 \alias{sq.zoom}
-%- Also NEED an '\alias' for EACH other topic documented here.
-\title{
-Direct access to zoom functionalities.
-}
-\description{
-These are not intended for direct end user use. They may be used in scripts.
-}
+\title{Direct access to zoom functionalities.}
 \usage{
-in.zoom(...)
-out.zoom(...)
-inout.zoom(...)
-sq.zoom(...)
+  in.zoom(...)
+
+  out.zoom(...)
+
+  set.zoom(...)
+
+  sq.zoom(...)
 }
-%- maybe also 'usage' for other objects documented here.
 \arguments{
-  \item{\dots}{
-	Extra arguments to zoomplot.zoom.
-}
+  \item{\dots}{Extra arguments to zoomplot.zoom.}
 }
 \value{
-No guaranted output value
+  NULL
 }
-
+\description{
+  Direct selection of a zoom method of the "session" type.
+  Possibly of use in scripts?
+}
+\note{
+  Each function starts a different interactive sequence
+  \itemize{ \item{in.zoom(): }{each left click zooms in}
+  \item{out.zoom(): }{each left click zooms out}
+  \item{set.zoom(): }{ask for a magnification factor}
+  \item{sq.zoom(): }{allow to click on the two corners of
+  the desired region to zoom on} }
+}
 \author{
-Corentin M. Barbu
+  Corentin M. Barbu
 }
 \seealso{
-zm(), session.zoom().
+  zm(), session.zoom().
 }
 
