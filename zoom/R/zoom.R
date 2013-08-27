@@ -469,9 +469,9 @@ setCallBack<-function(..., xlim = NULL, ylim = NULL, xaxs = "r", yaxs = "r"){
 #' @seealso zm().
 #' @keywords session navigation
 #' @examples
-#' 
 #' \dontrun{
-#' navigation.zoom()
+#' plot(rnorm(100),rnorm(100))
+#' session.zoom()
 #' }
 #' 
 #' @export navigation.zoom
@@ -592,6 +592,7 @@ XlibReplot<-function(rp=NULL){
 #' @keywords zoom zm navigate navigation plot
 #' @examples
 #' 
+#' \dontrun{
 #' # basic example
 #' plot(rnorm(1000),rnorm(1000)) # could be any plot
 #' zm() # navigate the plot
@@ -614,7 +615,6 @@ XlibReplot<-function(rp=NULL){
 #' # one might want to use the older interface
 #' # if attached to cairo under linux or MacOS
 #' # it is also sometimes helpful to just define a square you want to zoom on
-#' \dontrun{
 #' zm(type="s") 
 #' }
 #' 

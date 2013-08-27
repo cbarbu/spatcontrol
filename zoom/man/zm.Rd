@@ -52,6 +52,7 @@
   Ctrl-C on the command line.
 }
 \examples{
+\dontrun{
 # basic example
 plot(rnorm(1000),rnorm(1000)) # could be any plot
 zm() # navigate the plot
@@ -74,7 +75,6 @@ zm() # it flickers quite a bit as it needs to replot everything every time...
 # one might want to use the older interface
 # if attached to cairo under linux or MacOS
 # it is also sometimes helpful to just define a square you want to zoom on
-\dontrun{
 zm(type="s")
 }
 }

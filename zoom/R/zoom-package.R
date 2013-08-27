@@ -55,9 +55,10 @@
 #' Maintainer: Corentin M. Barbu <corentin.barbu@@gmail.com>
 #' @keywords zoom plot navigate navigation
 #' @examples
-#' 
+#' \dontrun{
 #' plot(rnorm(1000),rnorm(1000))
 #' zm()
+#' }
 #' 
 NULL
 

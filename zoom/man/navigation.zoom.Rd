@@ -25,7 +25,8 @@
 }
 \examples{
 \dontrun{
-navigation.zoom()
+plot(rnorm(100),rnorm(100))
+session.zoom()
 }
 }
 \author{

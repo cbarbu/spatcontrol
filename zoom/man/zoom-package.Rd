@@ -53,8 +53,10 @@
   dev.print() works fine.} }
 }
 \examples{
+\dontrun{
 plot(rnorm(1000),rnorm(1000))
 zm()
+}
 }
 \author{
   Corentin M. Barbu
