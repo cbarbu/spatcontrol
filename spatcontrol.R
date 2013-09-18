@@ -115,6 +115,7 @@ signedLog<-function(signedBigNums){
 count<-function(vect){
 	return(length(which(vect)))
 }
+# set two factor vectors to have the same levels
 getFactorsHomogeneous<-function(d1,d2){
 	# d1 y d2 tienen que 
 	for(col in 1:length(names(d1))){ # para cada columna
