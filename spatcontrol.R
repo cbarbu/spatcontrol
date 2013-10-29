@@ -4301,6 +4301,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 }
 traces<-function(db,nl=3,nc=4,true.vals=NULL){
   db<-as.data.frame(db)
+
   pch <- "."
   if(dim(db)[1]>100){
     type="p"
@@ -4308,17 +4309,22 @@ traces<-function(db,nl=3,nc=4,true.vals=NULL){
     type="l"
   }
   for(num in 1:length(names(db))){
+	  cat("plotting:",names(db)[num],"\n")
+	  # cleanup variable from NaN
+	  var <- db[[num]]
+	  var <- var[is.finite(var)]
+
 	  if(num %% (nl*nc) ==1){ 
 		  dev.new()
 		  par(mfrow=c(nl,nc))
 	  }
 	  name<-names(db)[num]
 	  if(name %in% names(true.vals)){
-		  ylim<-range(true.vals[[name]],db[[num]])
+		  ylim<-range(true.vals[[name]],var)
 	  }else{
-		  ylim<-range(db[[num]])
+		  ylim<-range(var)
 	  }
-	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
+	  plot(var,main=name,pch=pch,type=type,ylim=ylim)
 	  if(name %in% names(true.vals)){
 		  abline(h=true.vals[[name]],col="green")
 	  }
@@ -4373,8 +4379,9 @@ trace.mcmc<-function(samples=NULL,dbFit=NULL){
 
   return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
 }
-get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
-  C<-C[which(!is.infinite(C))]
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL,visuQuant=TRUE,add=FALSE,...){
+	C<-C[which(!is.infinite(C))]
+
   if(length(which(!is.na(C)))>1){
     estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
     names(estimate)[1]<-"Mean"
@@ -4395,33 +4402,41 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
 
     vals<-predict(densfit,estimate)
     if(visu){
-	if(is.null(xlim))
-      		plot(densfit,xlab=name)
-	else
-		plot(densfit, xlab=name, xlim = xlim)
-      lines(rep(estimate[1],2),c(0,vals[1]),col="black")
-      for(q in 2:4){
-	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
-      }
-      if(!is.null(true.val)){
-	abline(v=true.val,col="green")
-      }
+	    if(is.null(xlim)){
+		    xlim = range(C)
+	    }
+	    x<-seq(xlim[1],xlim[2],length.out=1000)
+	    y<-predict(densfit,x)
+	    if(add){
+	    lines(x,y,type="l",...)
+	    }else{
+	    plot(x,y,type="l",xlab=name,ylab="density", xlim = xlim,ylim=range(y),...)
+	    }
+	    if(visuQuant){
+		    lines(rep(estimate[1],2),c(0,vals[1]),col="black")
+		    for(q in 2:4){
+			    lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
+		    }
+		    if(!is.null(true.val)){
+			    abline(v=true.val,col="green")
+		    }
+	    }
 
-      if(leg){ # legend
-	# legend
-	if(mean(densfit$box)>estimate[3]){
-	  loc<-"topright"
-	}else{
-	  loc<-"topleft"
-	}
-	leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
-	leg.col<-c("blue","black")
-	if(!is.null(true.val)){
-	  leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
-	  leg.col<-c(leg.col,"green")
-	}
-	legend(loc,leg.text,col=leg.col,lty=1)
-      }
+	    if(leg){ # legend
+		    # legend
+		    if(mean(densfit$box)>estimate[3]){
+			    loc<-"topright"
+		    }else{
+			    loc<-"topleft"
+		    }
+		    leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
+		    leg.col<-c("blue","black")
+		    if(!is.null(true.val)){
+			    leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
+			    leg.col<-c(leg.col,"green")
+		    }
+		    legend(loc,leg.text,col=leg.col,lty=1)
+	    }
     }
   }else{
     densfit<-NULL
