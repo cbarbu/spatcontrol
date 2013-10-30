@@ -4392,8 +4392,19 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL,vi
   if(length(levels(as.factor(C)))>1){ # avoid to estimate unvarying
     # fit the density of C, avoiding errors with overspread C 
     Nthin<-1
-    while(class(densfit<-try(locfit(~C[seq(1,length(C),Nthin)])))=="try-error" && Nthin<length(C)/100){
-      Nthin<-Nthin*10
+    subset <- 1:length(C)
+    p<-0.001
+    while(class(densfit<-try(locfit(~C[subset])))=="try-error" 
+	  && length(subset)>0.90*length(C)){
+	    # quantile based 
+	    warning(paste("locfit diverge, try to cut",p," on each extreme"))
+	    quant <- quantile(C,probs=c(p,1-p))
+	    p <- 2*p
+	    subset <- which(C>min(quant) & C<max(quant))
+	    
+	    # # old: add in if: && Nthin<length(C)/100
+	    # Nthin<-Nthin*10
+	    # subset<-seq(1,length(C),Nthin)
     }
     attributes(densfit)$Nthin<-Nthin
     if(Nthin>1){
