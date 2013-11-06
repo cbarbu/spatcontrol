@@ -7,7 +7,7 @@ library(testthat)
 library(Hmisc)
 library(plotrix)
 library("maptools")
-# library(LaplacesDemon)
+# library(LaplacesDemon) package discontinued on rcran, may need to find functions again
 library(locfit)
 library("binom")
 library(fields)
@@ -2302,6 +2302,42 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 }
 # Ex: cb.diag(a<-matrix(rnorm(10000),ncol=10))
 
+###########################################################################
+# ESS or Effective.Size                                                          
+# Taken from: LaplacesDemon v10.12.30                                                             
+#
+# The purpose of this function is to estimate the effective sample size   
+# of a target distribution after taking autocorrelation into account.    
+# Although the code is slightly different, it is essentially the same as 
+# the effectiveSize function in the coda package.
+# This function is called inside cb.diag and thus needs to be here
+###########################################################################
+ESS <- function(x){
+     x <- as.matrix(x)
+     v0 <- order <- numeric(ncol(x))
+     names(v0) <- names(order) <- colnames(x)
+     z <- 1:nrow(x)
+     for (i in 1:ncol(x))
+          {
+          lm.out <- lm(x[, i] ~ z)
+          if (identical(all.equal(sd(residuals(lm.out)), 0), TRUE)) {
+               v0[i] <- 0
+               order[i] <- 0
+               }
+          else {
+               ar.out <- ar(x[, i], aic = TRUE)
+               v0[i] <- ar.out$var.pred/(1 - sum(ar.out$ar))^2
+               order[i] <- ar.out$order
+               }
+          }
+     spec <- list(spec = v0, order = order)
+     spec <- spec$spec
+     Eff.Size <- ifelse(spec == 0, 0, nrow(x) * apply(x, 2, var)/spec)
+     Eff.Size <- ifelse(Eff.Size > nrow(x), nrow(x), Eff.Size)
+     return(Eff.Size)
+}
+
+
 # # To perform the Gelman-Rubin (from library(boa))
 # boa.chain.gandr(list(matrixOfParamChains1,matrixOfParamChains2),alpha=0.05)
 # or simpler:
@@ -4266,6 +4302,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 }
 traces<-function(db,nl=3,nc=4,true.vals=NULL){
   db<-as.data.frame(db)
+
   pch <- "."
   if(dim(db)[1]>100){
     type="p"
@@ -4273,17 +4310,22 @@ traces<-function(db,nl=3,nc=4,true.vals=NULL){
     type="l"
   }
   for(num in 1:length(names(db))){
+	  cat("plotting:",names(db)[num],"\n")
+	  # cleanup variable from NaN
+	  var <- db[[num]]
+	  var <- var[is.finite(var)]
+
 	  if(num %% (nl*nc) ==1){ 
 		  dev.new()
 		  par(mfrow=c(nl,nc))
 	  }
 	  name<-names(db)[num]
 	  if(name %in% names(true.vals)){
-		  ylim<-range(true.vals[[name]],db[[num]])
+		  ylim<-range(true.vals[[name]],var)
 	  }else{
-		  ylim<-range(db[[num]])
+		  ylim<-range(var)
 	  }
-	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
+	  plot(var,main=name,pch=pch,type=type,ylim=ylim)
 	  if(name %in% names(true.vals)){
 		  abline(h=true.vals[[name]],col="green")
 	  }
@@ -4338,8 +4380,9 @@ trace.mcmc<-function(samples=NULL,dbFit=NULL){
 
   return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
 }
-get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
-  C<-C[which(!is.infinite(C))]
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL,visuQuant=TRUE,add=FALSE,...){
+	C<-C[which(!is.infinite(C))]
+
   if(length(which(!is.na(C)))>1){
     estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
     names(estimate)[1]<-"Mean"
@@ -4350,8 +4393,19 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
   if(length(levels(as.factor(C)))>1){ # avoid to estimate unvarying
     # fit the density of C, avoiding errors with overspread C 
     Nthin<-1
-    while(class(densfit<-try(locfit(~C[seq(1,length(C),Nthin)])))=="try-error" && Nthin<length(C)/100){
-      Nthin<-Nthin*10
+    subset <- 1:length(C)
+    p<-0.001
+    while(class(densfit<-try(locfit(~C[subset])))=="try-error" 
+	  && length(subset)>0.90*length(C)){
+	    # quantile based 
+	    warning(paste("locfit diverge, try to cut",p," on each extreme"))
+	    quant <- quantile(C,probs=c(p,1-p))
+	    p <- 2*p
+	    subset <- which(C>min(quant) & C<max(quant))
+	    
+	    # # old: add in if: && Nthin<length(C)/100
+	    # Nthin<-Nthin*10
+	    # subset<-seq(1,length(C),Nthin)
     }
     attributes(densfit)$Nthin<-Nthin
     if(Nthin>1){
@@ -4360,33 +4414,41 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
 
     vals<-predict(densfit,estimate)
     if(visu){
-	if(is.null(xlim))
-      		plot(densfit,xlab=name)
-	else
-		plot(densfit, xlab=name, xlim = xlim)
-      lines(rep(estimate[1],2),c(0,vals[1]),col="black")
-      for(q in 2:4){
-	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
-      }
-      if(!is.null(true.val)){
-	abline(v=true.val,col="green")
-      }
+	    if(is.null(xlim)){
+		    xlim = range(C)
+	    }
+	    x<-seq(xlim[1],xlim[2],length.out=1000)
+	    y<-predict(densfit,x)
+	    if(add){
+	    lines(x,y,type="l",...)
+	    }else{
+	    plot(x,y,type="l",xlab=name,ylab="density", xlim = xlim,ylim=range(y),...)
+	    }
+	    if(visuQuant){
+		    lines(rep(estimate[1],2),c(0,vals[1]),col="black")
+		    for(q in 2:4){
+			    lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
+		    }
+		    if(!is.null(true.val)){
+			    abline(v=true.val,col="green")
+		    }
+	    }
 
-      if(leg){ # legend
-	# legend
-	if(mean(densfit$box)>estimate[3]){
-	  loc<-"topright"
-	}else{
-	  loc<-"topleft"
-	}
-	leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
-	leg.col<-c("blue","black")
-	if(!is.null(true.val)){
-	  leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
-	  leg.col<-c(leg.col,"green")
-	}
-	legend(loc,leg.text,col=leg.col,lty=1)
-      }
+	    if(leg){ # legend
+		    # legend
+		    if(mean(densfit$box)>estimate[3]){
+			    loc<-"topright"
+		    }else{
+			    loc<-"topleft"
+		    }
+		    leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
+		    leg.col<-c("blue","black")
+		    if(!is.null(true.val)){
+			    leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
+			    leg.col<-c(leg.col,"green")
+		    }
+		    legend(loc,leg.text,col=leg.col,lty=1)
+	    }
     }
   }else{
     densfit<-NULL
