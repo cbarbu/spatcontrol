@@ -300,6 +300,7 @@ LL.to.our.utms<-function(coord,utmZone=NULL,addSouth=10000000){
  	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
  	coordDefined<-coord[sel,] 
 	X<- Y <- rep(0,dim(coordDefined)[1])
+	names(coordDefined)<-c("lon","lat")
  
 	# auto detect utm zone if not set
 	if(is.null(utmZone)){
