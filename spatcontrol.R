@@ -56,10 +56,10 @@ star.on.pvalues<-function(pvalues){
 }
 
 # compile the .c if needed
-compilLoad<-function(sourcef){
+compilLoad<-function(sourcef,options=""){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
-		exitCode<-system(paste("R CMD SHLIB",sourcef))
+		exitCode<-system(paste("R CMD SHLIB",options,sourcef))
 		if(exitCode!=0){
 			stop("Compilation of ",sourcef," failed")
 		}else{
