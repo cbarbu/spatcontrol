@@ -3243,6 +3243,10 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
   return(subprior)
 }
 
+#' @title main function for fit of GMRF to incomplete binary data
+#' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
+#'          inspectors quality and number of iterations
+
 fit.spatautocorel<-function(db=NULL,
 			    pfile="parameters_extrapol.r",
 			    fit.spatstruct=TRUE,
@@ -3483,7 +3487,7 @@ fit.spatautocorel<-function(db=NULL,
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
 
-  cat("Account for local noise:",use.v,"\n")
+  cat("Account for local noise (v):",use.v,"\n")
 
   # should have here kernel used etc...
 
@@ -4179,6 +4183,7 @@ est.yp<-sum.yp/(nbiterations-lastAdaptProp);
 dump("est.yp",file=paste("estimated.txt",sep=""),append=TRUE)
 # save it in db
 db$krigMean<-estMean
+db$muPrior<-muPrior
 db$p.i <- est.yp
 db$est.u <- est.u
 if(use.v){
@@ -4207,10 +4212,11 @@ attributes(db)$nbiterations<-nbiterations
 
 save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
+browser()
 dev.new()
 par(mfrow=c(2,2))
-plot_reel(db$X,db$Y,db$obs,base=0,top=1,main="Observed")
-plot_reel(db$X,db$Y,db$estMean,base=0,main="Krigged Mean")
+plot_reel(db$X,db$Y,db$observed,base=0,top=1,main="Observed")
+plot_reel(db$X,db$Y,db$krigMean,base=0,main="Krigged Mean")
 plot_reel(db$X,db$Y,db$muPrior,base=-5,top=3,main="prior Mu")
 plot_reel(db$X,db$Y,db$p.i,base=0,top=1,main="posterior proba")
 # in addition can check with 
