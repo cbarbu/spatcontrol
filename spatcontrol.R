@@ -3151,7 +3151,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 
 	
 	R <- K[1]*Q + diag.spam(1+fo,dimension);
-	center <- diag.spam(1, dimension)%*%(y+fo*(o-io)) + K[1]*Q%*%prior_u_mean;
+	center <- diag.spam(1, dimension)%*%(y+(o-io)/fo) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
@@ -3852,7 +3852,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
-	fo<- 2 #sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	fo<- sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
