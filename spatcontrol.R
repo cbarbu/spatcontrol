@@ -3410,7 +3410,7 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Fit autocorrelation structure:",fit.spatstruct)
   if(!fit.spatstruct){
-	  cat(" (f=",f,";T=",T,";Ku=",Ku,sep="")
+	  cat(" (f=",f,";T=",T,";Ku=",Ku,"tr=",threshold,sep="")
 	  if (use.v) cat(";Kv=",Kv,sep="")
 	  cat(")\n",sep="");
   }
