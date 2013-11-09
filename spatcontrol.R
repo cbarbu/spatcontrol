@@ -3852,7 +3852,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
-	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	fo<- 2 #sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
@@ -3863,7 +3863,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(use.v){ # local error
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+fo*(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io)/fo, nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3878,7 +3878,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	}else{
 		
 	 if(fit.OgivP == "probit"){
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+fo*(o-io), prior_u_mean=muPrior);
+	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io)/fo, prior_u_mean=muPrior);
 	 }else{	
 	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
