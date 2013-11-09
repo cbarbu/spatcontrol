@@ -3857,14 +3857,25 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<- sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
+    }else if(fit.OgivP=="stdProbit"){
+        mw <- mean(w)
+        sw <- mean(w)
+	ws <- (w - mw)/sw
+	fo<- sample_fo(o,io,ws,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	io<- sample_io(o,ws, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
+	o<-sample_o(oprime,ws,io,fo=fo)
     }
 
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
       if(use.v){ # local error
+        # TODO: should be rewritten to avoid multiple calls to samplexuv just change arguments initially ane in samplexuv go fast if can
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
+	 }else if(fit.OgivP == "stdProbit"){
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io+fo*mw/sw), nbsample=(1+abs(fo/sw)), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3877,18 +3888,14 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  Kv<-K[[2]];
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
-		
 	  if(fit.OgivP == "probit"){
 	    #   x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io), prior_u_mean=muPrior);
 	    # problem: samplexuv_with_prior_u was not updating
 	    #     the diagonal of R according to fo! big pb
 
 	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
-	    ## beginning of thinking what it would be with scaled w
-	    ## the problem is what to do with fo
-	    ## as for the sampling of o, io and fo 
-	    ## it should be obvious
-	    # x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io)*sdw+mw, nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
+	 }else if(fit.OgivP == "stdProbit"){
+	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io+fo*mw/sw), nbsample=(1+abs(fo/sw)), prior_u_mean=muPrior, cholR=cholR);
 	  }else{	
 	    x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
