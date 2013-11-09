@@ -56,10 +56,10 @@ star.on.pvalues<-function(pvalues){
 }
 
 # compile the .c if needed
-compilLoad<-function(sourcef){
+compilLoad<-function(sourcef,options=""){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
-		exitCode<-system(paste("R CMD SHLIB",sourcef))
+		exitCode<-system(paste("R CMD SHLIB",options,sourcef))
 		if(exitCode!=0){
 			stop("Compilation of ",sourcef," failed")
 		}else{
@@ -3104,17 +3104,19 @@ sample_v<-function(ynotv,Kv){
 ## w is the probit predictor of infestation for each house
 ## fo scales impact of w on o
 sample_io <- function(o, w, fo = 1, prior_io_mean = 0, prior_io_var = 2){
-## given io ~ N(prior_io_mean, 2)
+## given io ~ N(prior_io_mean, prior_io_var)
 ## given o ~ N(fo*w+io, 1) <=> o-fo*w ~ N(io, 1)
 ## then io | o, fo, w ~ N(following)
 
-	# cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
-	meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))/(1/prior_io_var + length(o))
-	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
-	# print(summary(sdPost))
-	io <- rnorm(1, mean=meanPost, sd=sdPost)
+  # cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
 
-	return(io)
+  varPost <- 1/(1/prior_io_var + length(o))
+  meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))*varPost
+  sdPost <- sqrt(varPost)
+  # print(summary(sdPost))
+  io <- rnorm(1, mean=meanPost, sd=sdPost)
+
+  return(io)
 }
 
 ## o is the probit of opening for each house
@@ -3150,7 +3152,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 
 	
 	R <- K[1]*Q + diag.spam(1+fo,dimension);
-	center <- diag.spam(1, dimension)%*%(y+fo*(o-io)) + K[1]*Q%*%prior_u_mean;
+	center <- diag.spam(1, dimension)%*%(y+(o-io)/fo) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
@@ -3161,6 +3163,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # o is the probit for opening for each house
 # io is the shift parameter (same over all houses)
 # w is the spatial component of infestation over all houses (may include error term)
+# prior checked numerically for no data, with data may be wrong(CB)
 sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
 
 	## Added in ^-1 as instructed by CB	
@@ -3243,6 +3246,10 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
   subprior <- priordatafullmap[selectedlines, ]
   return(subprior)
 }
+
+#' @title main function for fit of GMRF to incomplete binary data
+#' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
+#'          inspectors quality and number of iterations
 
 fit.spatautocorel<-function(db=NULL,
 			    pfile="parameters_extrapol.r",
@@ -3484,7 +3491,7 @@ fit.spatautocorel<-function(db=NULL,
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
 
-  cat("Account for local noise:",use.v,"\n")
+  cat("Account for local noise (v):",use.v,"\n")
 
   # should have here kernel used etc...
 
@@ -3846,7 +3853,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    nNotInfNotOpen<-length(which(!yprime & ! openned))
 	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
     }else if(fit.OgivP=="probit"){
-	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	fo<- sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
@@ -3857,7 +3864,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(use.v){ # local error
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+fo*(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io)/fo, nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3872,7 +3879,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	}else{
 		
 	 if(fit.OgivP == "probit"){
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+fo*(o-io), prior_u_mean=muPrior);
+	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io)/fo, prior_u_mean=muPrior);
 	 }else{	
 	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
@@ -4180,6 +4187,7 @@ est.yp<-sum.yp/(nbiterations-lastAdaptProp);
 dump("est.yp",file=paste("estimated.txt",sep=""),append=TRUE)
 # save it in db
 db$krigMean<-estMean
+db$muPrior<-muPrior
 db$p.i <- est.yp
 db$est.u <- est.u
 if(use.v){
@@ -4208,10 +4216,11 @@ attributes(db)$nbiterations<-nbiterations
 
 save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
+browser()
 dev.new()
 par(mfrow=c(2,2))
-plot_reel(db$X,db$Y,db$obs,base=0,top=1,main="Observed")
-plot_reel(db$X,db$Y,db$estMean,base=0,main="Krigged Mean")
+plot_reel(db$X,db$Y,db$observed,base=0,top=1,main="Observed")
+plot_reel(db$X,db$Y,db$krigMean,base=0,main="Krigged Mean")
 plot_reel(db$X,db$Y,db$muPrior,base=-5,top=3,main="prior Mu")
 plot_reel(db$X,db$Y,db$p.i,base=0,top=1,main="posterior proba")
 # in addition can check with 
