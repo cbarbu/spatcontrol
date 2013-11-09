@@ -3151,7 +3151,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # where [K*Q + (1+fo)I] is the precision matrix of the multivariate normal
 
 	
-	R <- K[1]*Q + diag.spam(1+fo,dimension);
+	R <- K[1]*Q + diag.spam(1+abs(fo),dimension);
 	center <- diag.spam(1, dimension)%*%(y+(o-io)) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
@@ -3864,7 +3864,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(use.v){ # local error
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3883,7 +3883,12 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	    # problem: samplexuv_with_prior_u was not updating
 	    #     the diagonal of R according to fo! big pb
 
-	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
+	    ## beginning of thinking what it would be with scaled w
+	    ## the problem is what to do with fo
+	    ## as for the sampling of o, io and fo 
+	    ## it should be obvious
+	    # x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io)*sdw+mw, nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
 	  }else{	
 	    x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
