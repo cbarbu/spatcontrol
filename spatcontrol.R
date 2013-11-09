@@ -3103,17 +3103,19 @@ sample_v<-function(ynotv,Kv){
 ## w is the probit predictor of infestation for each house
 ## fo scales impact of w on o
 sample_io <- function(o, w, fo = 1, prior_io_mean = 0, prior_io_var = 2){
-## given io ~ N(prior_io_mean, 2)
+## given io ~ N(prior_io_mean, prior_io_var)
 ## given o ~ N(fo*w+io, 1) <=> o-fo*w ~ N(io, 1)
 ## then io | o, fo, w ~ N(following)
 
-	# cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
-	meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))/(1/prior_io_var + length(o))
-	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
-	# print(summary(sdPost))
-	io <- rnorm(1, mean=meanPost, sd=sdPost)
+  # cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
 
-	return(io)
+  varPost <- 1/(1/prior_io_var + length(o))
+  meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))*varPost
+  sdPost <- sqrt(varPost)
+  # print(summary(sdPost))
+  io <- rnorm(1, mean=meanPost, sd=sdPost)
+
+  return(io)
 }
 
 ## o is the probit of opening for each house
@@ -3160,6 +3162,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # o is the probit for opening for each house
 # io is the shift parameter (same over all houses)
 # w is the spatial component of infestation over all houses (may include error term)
+# prior checked numerically for no data, with data may be wrong(CB)
 sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
 
 	## Added in ^-1 as instructed by CB	
