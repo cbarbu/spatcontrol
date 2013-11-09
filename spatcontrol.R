@@ -3152,7 +3152,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 
 	
 	R <- K[1]*Q + diag.spam(1+fo,dimension);
-	center <- diag.spam(1, dimension)%*%(y+(o-io)/fo) + K[1]*Q%*%prior_u_mean;
+	center <- diag.spam(1, dimension)%*%(y+(o-io)) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
@@ -3417,7 +3417,7 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Fit autocorrelation structure:",fit.spatstruct)
   if(!fit.spatstruct){
-	  cat(" (f=",f,";T=",T,";Ku=",Ku,"tr=",threshold,sep="")
+	  cat(" (f=",f,";T=",T,";tr=",threshold,";Ku=",Ku,sep="")
 	  if (use.v) cat(";Kv=",Kv,sep="")
 	  cat(")\n",sep="");
   }
@@ -3855,7 +3855,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     }else if(fit.OgivP=="probit"){
 	fo<- sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
-	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
+	io<- sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
     }
 
@@ -3864,7 +3864,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       if(use.v){ # local error
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io)/fo, nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3878,10 +3878,14 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
 		
-	 if(fit.OgivP == "probit"){
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io)/fo, prior_u_mean=muPrior);
-	 }else{	
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
+	  if(fit.OgivP == "probit"){
+	    #   x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io), prior_u_mean=muPrior);
+	    # problem: samplexuv_with_prior_u was not updating
+	    #     the diagonal of R according to fo! big pb
+
+	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	  }else{	
+	    x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
 	}
 	u<-x[1:dimension];
@@ -4216,7 +4220,6 @@ attributes(db)$nbiterations<-nbiterations
 
 save(list=ls(),file="EndSampleImage.img") # allow to examine the environment later
 
-browser()
 dev.new()
 par(mfrow=c(2,2))
 plot_reel(db$X,db$Y,db$observed,base=0,top=1,main="Observed")
