@@ -3247,10 +3247,17 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
   return(subprior)
 }
 
+# from an odd ratio and the prevalence in population at the numerator
+# get the prevalence in the denominator population according to
+# OR = ((pn)/(1-pn))/((pd)/(1-pd))
+ORtoPrevDenominator <- function(or,prevNumerator){
+  prevDenominator <- 1/(1+or/(prevNumerator/(1-prevNumerator))) # from OR to prev
+  return(prevDenominator)
+}
+
 #' @title main function for fit of GMRF to incomplete binary data
 #' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
 #'          inspectors quality and number of iterations
-
 fit.spatautocorel<-function(db=NULL,
 			    pfile="parameters_extrapol.r",
 			    fit.spatstruct=TRUE,
@@ -3446,45 +3453,63 @@ fit.spatautocorel<-function(db=NULL,
   meanBeta<-abeta/(abeta+bbeta)
   estMean<-estMean/meanBeta # correct for prior on non-observed
   estMean[estMean>=1] <- 1-epsilonProba
-  estMean[db$observed!=1]<-estMean[db$observed!=1]/factMuPriorNonObs
+  estMean[db$observed!=1]<- ORtoPrevDenominator(ORMuPriorNonObs,estMean[db$observed!=1])
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
-  muInit<-qnorm(estMean,mean=0,sd=estSD)
-  muInit[is.na(muInit)]<-qnorm(mean(estMean,na.rm=TRUE)/factMuPriorNonObs,mean=0,sd=estSD[is.na(muInit)])
   if(!is.null(mu)){
-	  muInit<-rep(mu,dimension);
-	  cat("Mu init homogenous:",mu,"\n")
+    muInit<-rep(mu,dimension);
+    cat("Mu init homogenous:",mu,"\n")
   }else{
-	  cat("Mu init reflecting krigging\n")
+    muInit<-qnorm(estMean,mean=0,sd=estSD)
+    muInit[is.na(muInit)]<-qnorm(ORtoPrevDenominator(ORMuPriorNonObs,
+						     mean(estMean,na.rm=TRUE)),
+				 mean=0,sd=estSD[is.na(muInit)])
+    cat("Mu init reflecting krigging\n")
   }
-
   if(is.null(muPriorObs)){
-	  muPrior<-muInit
-	  obs<-db$positive
-	  obs[db$observed==0]<-0.5
-	  dev.new()
-	  par(mfrow=c(2,2))
-	  plot_reel(db$X,db$Y,obs,base=0,top=1,main="Observed")
-	  plot_reel(db$X,db$Y,estMean,base=0,main="Krigged Mean")
-	  plot_reel(db$X,db$Y,estSD,base=0,top=max(estSD),main="PriorSD")
-	  plot_reel(db$X,db$Y,muPrior,base=-5,top=3,main="prior Mu")
-	  # in addition can check with 
-	  # retroPrior<-pnorm(muPrior,0,estSD)
-	  # with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
-
-	  cat("Personalyze muPrior following prior mu\n")
-  }else if (muPriorObs=="useFactNA"){
-	estSD<-sqrt(1+1/Ku+1/Kv)
-	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
-  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs,mean=0,sd=estSD)
-	muPrior<-rep(0,dimension)
-	muPrior[db$observed!=1]<-muPriorNonObs
-	muPrior[db$observed==1]<-muPriorObs
-	cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
-  }else{
-	  muPrior<-rep(muPriorObs,dim(Q)[1])
-	  cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorObs,"\n")
+    muPriorObs <- "QuseAverage"
   }
+
+  if(muPriorObs == "Qkrigging"){
+    muPrior<-muInit
+    cat("muPrior follows krigged observed value, on average:\n")
+  }else if (muPriorObs=="QuseAverage"){
+    prevInOpen <- mean(db$positive[db$observed==1])
+    muPriorObs <- qnorm(prevInOpen,mean=0,sd=estSD[db$observed==1])
+
+    prevInNonObs <- ORtoPrevDenominator(ORMuPriorNonObs,prevInOpen)
+    muPriorNonObs<- qnorm(prevInNonObs,mean=0,sd=estSD[db$observed!=1])
+
+    muPrior<-rep(0,dimension)
+    muPrior[db$observed!=1]<-muPriorNonObs
+    muPrior[db$observed==1]<-muPriorObs
+  }else{
+    muPrior<-rep(muPriorObs,dim(Q)[1])
+  }
+  prevInOpen <- pnorm(muPrior[db$observed==1],0,estSD[db$observed==1])
+  prevInNonObs <- pnorm(muPrior[db$observed==0],0,estSD[db$observed==0])
+  muPriorObs <- muPrior[db$observed == 1]
+  muPriorNonObs <- muPrior[db$observed == 0]
+  cat("muPriorObs:",mean(muPriorObs),"(",mean(prevInOpen),"%), muPriorNonObs:",
+      mean(muPriorNonObs),"(",mean(prevInNonObs),"%)\n")
+
+  dev.new()
+  par(mfrow=c(2,3))
+  obs<-db$positive
+  obs[db$observed==0]<-0.5
+  plot_reel(db$X,db$Y,obs,base=0,top=1,main="Observed")
+  plot_reel(db$X,db$Y,estMean,base=0,main="Krigged Mean")
+  plot_reel(db$X,db$Y,estSD,base=0,top=max(estSD),main="PriorSD")
+  plot_reel(db$X,db$Y,muPrior,base=-5,top=3,main="prior Mu")
+  # in addition can check with 
+  retroPrior<-pnorm(muPrior,0,estSD)
+  with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="p from muPrior"))
+  db$pPrior <- retroPrior
+
+  cat("check priors in table\n")
+  cat("prior p:",quantile(db$pPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
+  cat("prior mu:",quantile(db$pPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
+
   cat("Intercept:",intercept,"\n")
   db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
@@ -3584,6 +3609,7 @@ b <- c(abeta,bbeta) # hyperparameters of the detection quality
 
 if(visu.progression){
   ## priors plotting
+  dev.new()
   par(mfrow=c(1,nparam))
 
   xabs<-seq(0.001,5*fprior,0.1)
