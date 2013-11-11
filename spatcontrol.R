@@ -3259,7 +3259,7 @@ ORtoPrevDenominator <- function(or,prevNumerator){
 #' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
 #'          inspectors quality and number of iterations
 fit.spatautocorel<-function(db=NULL,
-			    pfile="parameters_extrapol.r",
+			    pfile="parameters_extrapol.R",
 			    fit.spatstruct=TRUE,
 			    use.generated=FALSE,
 			    make.map.cofactors=FALSE,
@@ -3885,10 +3885,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	o<-sample_o(oprime,w,io,fo=fo)
     }else if(fit.OgivP=="stdProbit"){
         mw <- mean(w)
-        sw <- mean(w)
+        sw <- sd(w)
 	ws <- (w - mw)/sw
 	fo<- sample_fo(o,io,ws,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
-	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	io<- sample_io(o,ws, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,ws,io,fo=fo)
     }
