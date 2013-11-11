@@ -4338,6 +4338,10 @@ traces<-function(db,nl=3,nc=4,true.vals=NULL){
 	  # cleanup variable from NaN
 	  var <- db[[num]]
 	  var <- var[is.finite(var)]
+	  if(length(var)==0){
+	    cat("No finite values\n")
+	    next 
+	  }
 
 	  if(num %% (nl*nc) ==1){ 
 		  dev.new()
