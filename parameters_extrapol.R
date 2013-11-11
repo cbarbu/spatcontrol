@@ -25,20 +25,26 @@ mu <- NULL # fuerza inicial del preditor espacial (negativo es probabilidad de p
 ## spatial component
 #----------------------------
 ### autocorrelation parameters
+# f: characteristic distance (same unit than X/Y)
 fprior=9 # MUST be adapted to the expected scale of the autocorrelation, in the same unit than the x,y of the points
 sdlf<-1 # prior deviation for f on the log scale, usually safer to set it to 1
 # can be downsized if divergence problems
 logsdfprop<-0.1 # initial log sd for proposal
 
+# T: impact of streets, multiply the correlation kernel. 
+# Defined on [0,+Inf[ 
+# If <1 streets are barriers, 
+# If >1 autocorrelation with distance is stronger out of the same city-block 
 Tprior<-0.3; # prior on barriers expected is no barrier effect (1)
 sdlT<-1; # prior deviation on log scale (2=>wide spectrum of possibilities for the barrier effect)
 logsdTprop<-0.1 # initial log sd for proposal
 
+# Ku: scaling of spatial precision
 Kushape <- 0.001; Kuscale <- 1000; # parameter of Ku prior
 
+# epsilon: precision of the spatial component for isolated houses
 epsilon <- 1/100 # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
-# epsilon <- 1/sqrt(2.5) # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
-
+# epsilon <- 1/sqrt(2.5) # may be better value in the future
 
 ### positiveness prior (prior for the value of each house
 muPriorObs<- "QuseAverage" 
@@ -64,9 +70,10 @@ epsilonProba <- 0.001 # in the initial krigging, minimum proba,
 #--------------------------------
 # Non spatial component
 #--------------------------------
-# Kc<-0.01; # prior precision of the cofactors, arround 0
+# Kc precision of the cofactors impact
 Kc<-1/sqrt(2.5) # gelman's prior scale for coefficients in arm/bayesglm
 
+# Kv: the precision of the non-spacial component
 Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 
 #--------------------------------
