@@ -34,6 +34,12 @@ Tprior<-0.3; # prior on barriers expected is no barrier effect (1)
 sdlT<-1; # prior deviation on log scale (2=>wide spectrum of possibilities for the barrier effect)
 logsdTprop<-0.1 # initial log sd for proposal
 
+Kushape <- 0.001; Kuscale <- 1000; # parameter of Ku prior
+
+epsilon <- 1/100 # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
+# epsilon <- 1/sqrt(2.5) # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
+
+
 ### positiveness prior (prior for the value of each house
 muPriorObs<- "QuseAverage" 
            # Can take different types of values
@@ -55,36 +61,44 @@ ORMuPriorNonObs <- 1 # prior odds ratio of non observed points compared to obser
 epsilonProba <- 0.001 # in the initial krigging, minimum proba, 
 # also maximum proba = 1-epsilonProba (avoid qnorm -> infinite values)
 
-Kushape <- 0.001; Kuscale <- 1000; # parameter of Ku prior
-
-epsilon <- 1/100 # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
-# epsilon <- 1/sqrt(2.5) # the value added to the diagonal of Q, interpreted as the precision of the spatial component for isolated houses (allow for LLH calculations and data generation). Should not be changed.
-
-## non spatial component
+#--------------------------------
+# Non spatial component
+#--------------------------------
 # Kc<-0.01; # prior precision of the cofactors, arround 0
 Kc<-1/sqrt(2.5) # gelman's prior scale for coefficients in arm/bayesglm
 
 Kvshape <- 0.001; Kvscale <- 1000; # same for Kv
 
-## inspectors
+#--------------------------------
+# Modeling of quality of observation (if observed, see positiveness or not)
+#--------------------------------
 abeta <- 7; ## (18,2) allow to have the mean at 0.9
 bbeta <- 3; ## (1,1) gives flat prior
 # la qualidad media es dada por abeta/(abeta+bbeta)
 
+priorinspquality<- 0.9 # if insp not fitted quality of inspectors (default to 0.9, not 1)
+
+#--------------------------------
+# Modeling of observation (will it be observed or not)
+#--------------------------------
+#### linear model (po = poi if infested, po = poni if non-infested)
+# probability of opening if infested
 alpha.poi <- 7
 beta.poi <- 3
 
+# probability of opening if non-infested
 alpha.poni <- 7
 beta.poni <- 3
 
-priorinspquality<- 0.9 # if insp not fitted quality of inspectors (default to 0.9, not 1)
+#### probit (po = N(fo*w+io,1))
+#### or stdProbit model (po = N(fo*(w-sd(w))/mean(w)+io,1))
+# shift on the probit scale
+prior.io.mean <- 1 ##prior.io.mean used as default/initial value for io
+prior.io.var <- 1
 
-## opening priors
-prior.io.mean <-2 ##prior.io.mean used as default/initial value for io
-prior.io.var <- 0.1
-
-prior.fo.mean <- 2 ##prior.fo.mean used as default/initial value for fo 
-prior.fo.var <- 0.1
+# "correlation" on the probit scale
+prior.fo.mean <- 1 ##prior.fo.mean used as default/initial value for fo 
+prior.fo.var <- 1
 
 #=======================
 # How to sample? (technical parameters of the sampling)
@@ -92,7 +106,7 @@ prior.fo.var <- 0.1
 freqsave=20; # frequence of saving to text files, also thinning of "massive" data, like the maps
 
 visu.progression<-FALSE # turn on/off the mapping at each iterations
-			# of the results
+			# of the results (SLOW)
 
 # speed-up parameters for spam package
 spam.options(cholsymmetrycheck=FALSE, safemode=c(FALSE,FALSE,FALSE))
