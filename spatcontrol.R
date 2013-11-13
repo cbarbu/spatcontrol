@@ -2667,16 +2667,16 @@ sample_composite_ptnorm_vect <- function(xvect,bivect){
 	# sample y given that it's density is a normalized sum of 
 	# dnorm(xvect,1,0,+Inf)*(1-beta)+dnorm(xvect,1,-Inf,0)
 	# xvect: probit predictor of y :y ~ N(xvect,1)
-	# bivect: probability of being observed as 1 vs. 0
-	l<-length(xvect);
-	# cat("l",l);
-	tunifvect<-runif(l);
+	# bivect: probability of being observed as 1 vs. 0 when y+
 	A<-pnorm(0,mean=xvect,sd=1); 	# P(y-,z-|w)=P(y-|w) as P(y-,z+)=0
-	B<-(1-A)*(1-bivect);		# P(y+,z-|w)=P(y+,obs-|w)=P(obs-|y+,w)*P(y+|w)=(1-beta)*(1-P(y-|w))
+	B<-(1-A)*(1-bivect);		# P(y+,z-|w)=P(y+,obs-|w)=P(y+|w)*P(obs-|y+,w)=(1-P(y-|w))*(1-beta)
 	area<-A+B			# P(z-)=P(y-|w)+P(y+,obs-|w)
 	samp<-B/area;			# P(y+|z-,w)=P(y+,z-|w)/P(z-)
 	samp[area==0]<-1 ; 		# avoid errors when bivect=1 and xvect>0
 
+	l<-length(xvect);
+	# cat("l",l);
+	tunifvect<-runif(l);
 	tfinal<-mat.or.vec(l,1);
 	ypos<-which(tunifvect<=samp);
 	yneg<-which(tunifvect>samp);
