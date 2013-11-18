@@ -3830,7 +3830,7 @@ if(use.streets){
 
 ## save starting values
 nbtraced=23;
-poi<-poni<- (1-length(zNA)/dim(db)[1])
+poi<-poni<- (1-length(zNA)/dim(db)[1]) # homogeneous opening by default
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
 sampled[1,2]<-LLHu
