@@ -2694,6 +2694,70 @@ sample_composite_ptnorm_vect <- function(xvect,bivect){
 	
 	return(tfinal)
 }
+SampleCompositeTNorm <- function(meanNorm,cNeg,cPos){
+	# sample y given that it's density is a normalized sum of 
+	# cNeg*dnorm(meanNorm,1,-Inf,0)+cPos*dnorm(meanNorm,1,0,+Inf)
+	# meanNorm: probit predictor of y :y ~ N(meanNorm,1)
+	# cNeg: the modificator factor for negative part
+	# cPos: the modificator factor for positive part
+
+  	# compute the probability to be positive
+  	negHalfInt <- pnorm(0,mean=meanNorm,sd=1);
+	negW <- cNeg * negHalfInt
+	posW <- cPos * (1-negHalfInt)
+	normConst <- negW + posW
+	posProb <- posW/normConst;	
+	posProb[which(normConst==0)] <- 1 ; 
+	     # if negHalfInt =0 and cPos =0, will default to positive
+	     # to avoid catch 22 situations 	
+
+  	# identify positive and negative draws
+	l<-length(meanNorm); # cat("l",l);
+	rand<-runif(l); # random variable
+	yPos<-which(rand<=posProb);
+	yNeg<-which(rand>posProb);
+	cat("posProb:",mean(posProb)*l,"n:",length(yPos),"\n")
+	
+	# draw the continuous value of y according to 
+	# it's positiveness
+	tfinal<-mat.or.vec(l,1);
+	if(length(yPos)>0){
+		tfinal[yPos]<- rtruncnorm(1,
+					  mean=meanNorm[yPos],
+					  sd=1,a=0,b=Inf) 
+	}
+
+	if(length(yNeg)>0){
+		tfinal[yNeg]<- rtruncnorm(1,
+					  mean=meanNorm[yNeg],
+					  sd=1,a=-Inf,b=0) 
+	}
+	
+	return(tfinal)
+}
+# # test SampleCompositeTNorm by comparison to sample_composite_ptnorm_vect
+# set.seed(777)
+# n<-1000
+# means<-rnorm(n)
+# betas <- rbeta(n,1,1)
+# set.seed(777)
+# y1<-sample_composite_ptnorm_vect(means,betas)
+# set.seed(777)
+# y2<-SampleCompositeTNorm(means,1,1-betas)
+# expect_equal(y1,y2)
+# # test that SampleCompositeTNorm is the same than rtruncnorm one c is 0
+# set.seed(777)
+# y1<-SampleCompositeTNorm(means,0,betas)
+# set.seed(777)
+# rand<-runif(length(means)); # just to keep same random generation seq
+# y2 <- rtruncnorm(1,mean=means,sd=1,a=0,b=Inf)
+# expect_equal(y1,y2)
+# set.seed(777)
+# y1<-SampleCompositeTNorm(means,betas,0)
+# set.seed(777)
+# rand<-runif(length(means)); # just to keep same random generation seq
+# y2 <- rtruncnorm(1,mean=means,sd=1,a=-Inf,b=0)
+# expect_equal(y1,y2)
 
 # from there we can sample y which is sampled differently according to the observation or not of bugs in the data
 sample_y_direct <-function(w,zpos,zneg,zNA,bivect){
@@ -2745,7 +2809,7 @@ sampleYNApino<-function(wNA,poi,poni){
 
 	return(yNA)
 }
-sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+sampleYpino_old<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 	y<-0*w
 	if(length(zpos)>0){
 		y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
@@ -2761,6 +2825,22 @@ sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 
 	return(y);
 }
+# sample y according to poi, poni, beta
+# Nota: if poi=poni, it is the same than not giving poi and poni
+sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+  y<-0*w
+  if(length(zNA)>0){ # o-
+    y[zNA] <- SampleCompositeTNorm(w[zNA],(1-poni),(1-poi))
+  }
+  if(length(zneg)>0){ # o+, z-
+    y[zneg]<- SampleCompositeTNorm(w[zneg],poni,(1-bivect[zneg])*poi);
+  }
+  if(length(zpos)>0){ # o+,z+
+    y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
+  }
+  return(y);
+}
+
 
 
 
@@ -3212,11 +3292,11 @@ metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, 
   return(new)
 }
 
-samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
+samplebeta <- function(zpos,zneg,matrix,yprime,a,b){
 	yp.positive <- yprime;
 	yp.negative <- yprime; 
-	yp.positive[-zpos] <- 0; # z- turn y+ into 0 a.pos being then the sum of the y+ well observed
-	yp.negative[-zneg] <- 0; # z+ turn y+ into 0 a.neg being then the sum of the y+ badly observed 
+	yp.positive[-zpos] <- 0; # z- turns y+ into 0 a.pos being then the sum of the y+ well observed
+	yp.negative[-zneg] <- 0; # z+ turns y+ into 0 a.neg being then the sum of the y+ badly observed 
 	# the NA are not apparent here
 	a.pos <- (as.vector(t(matrix) %*% yp.positive) + a); 
 	b.pos <- (as.vector(t(matrix) %*% yp.negative) + b); 
@@ -3272,7 +3352,9 @@ fit.spatautocorel<-function(db=NULL,
 			    save.fields=FALSE,
 			    fit.OgivP=FALSE,
 			    dist_mat=NULL,
-			    aggreg=NULL
+			    aggreg=NULL,
+			    y=NULL,
+			    w=NULL
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -3451,6 +3533,7 @@ fit.spatautocorel<-function(db=NULL,
   initPos[db$observed==0]<-NA
   estMean<-krig.weightMat(initPos,QnoDiag)+epsilonProba # mean(db$positive[db$observed==1])
   meanBeta<-abeta/(abeta+bbeta)
+  if(is.na(meanBeta)) meanBeta<-0.5
   estMean<-estMean/meanBeta # correct for prior on non-observed
   estMean[estMean>=1] <- 1-epsilonProba
   estMean[db$observed!=1]<- ORtoPrevDenominator(ORMuPriorNonObs,estMean[db$observed!=1])
@@ -3508,7 +3591,7 @@ fit.spatautocorel<-function(db=NULL,
 
   cat("check priors in table\n")
   cat("prior p:",quantile(db$pPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
-  cat("prior mu:",quantile(db$pPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
+  cat("prior mu:",quantile(muPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
 
   cat("Intercept:",intercept,"\n")
   db$status<-rep(0,dim(db)[1])
@@ -3550,7 +3633,7 @@ fit.spatautocorel<-function(db=NULL,
     }
     inspector <- as.spam(inspector);
 
-    beta<-rep(1,length(inspectors))
+    beta<-rep(0.5,length(inspectors))
     bivect <- as.vector(inspector %*% beta);
     # par(mfrow=c(1,1))
   }else{
@@ -3653,14 +3736,25 @@ if(use.insp){
 cholQ<-chol(Q);
 
 u<-muPrior;
-y<-muPrior;
+if(is.null(y)){
+  y<-muPrior;
+  sampleY<-TRUE
+}else{
+  sampleY<-FALSE
+  cat("Not sampling y\n")
+}
+
 yprime <- (y>0);
+if(is.null(w)){
+  w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
+  sampleW<-TRUE
+}else{
+  sampleW<-FALSE
+}
 if(use.v){
-w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
 v<-w-u;
 x <- c(u, w);
 }else{
-  w<-u
   v<-0*u
   x<-c(u,w)
 }
@@ -3865,10 +3959,12 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
+  if(sampleY){
     # y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
     y<-sampleYpino(w,poi,poni,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
+  }
 
     if(fit.OgivP=="linear"){
 	    nInfOpen<-length(which(yprime & openned))
@@ -3892,6 +3988,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	o<-sample_o(oprime,ws,io,fo=fo)
     }
 
+    if(sampleW){
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
       if(use.v){ # local error
@@ -3962,6 +4059,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       wnotr<-0*w
     }
     w<-wnoc+wnotr+intercept
+    }
 
   if(fit.spatstruct){
     LLHu<-llh.ugivQ(dimension,u,Q,Ku,cholQ=cholQ) 
@@ -3987,6 +4085,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   # update inspectors sensitivity
   if(use.insp){
+    # beta <- beta.real
     beta <- samplebeta(zpos,zneg,inspector,yprime,abeta,bbeta);
     bivect <- as.vector(inspector %*% beta);
     # cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
@@ -4219,7 +4318,7 @@ cat("Time main loop:",mainLoopStop-mainLoopStart,"\n")
 
 nbiterations<-(num.simul-1)
 est.u<-sum.u/(nbiterations-lastAdaptProp);
-dump("est.u",file=paste("estimated.txt",sep=""),append=TRUE)
+dump("est.u",file=paste("estimated.txt",sep=""),append=FALSE)
 est.y<-sum.y/(nbiterations-lastAdaptProp);
 dump("est.y",file=paste("estimated.txt",sep=""),append=TRUE)
 est.w<-sum.w/(nbiterations-lastAdaptProp);
