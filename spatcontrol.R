@@ -525,6 +525,7 @@ UseMethod("rowsum")
 fn_at_not_null.spam<-function(A,num_row,funct){
 	return(funct(A@entries[A@rowpointers[num_row]:A@rowpointers[num_row+1]]));
 }
+
 apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	# extremely much faster than apply.spam
 	# careful, when row has no value this logically returns NA
@@ -703,7 +704,7 @@ pseudo_inv<-function(A){
 # source("zoom.r") # this should a separate package
 source("bfplot.R")
 
-strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","purple","yellow","grey","orange","slategrey","navyblue","darkgreen")
+strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","grey","orange","slategrey","navyblue","darkgreen")
 
 plot.palette<-function(colVect=palette()){
   N<-length(colVect)
@@ -808,29 +809,37 @@ plot.scale <- function(cols,nlev=10,digits=3){
 # plot(seq(1,
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
-plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,...){
+plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,legend=FALSE,x.legend="topright",y.legend=NULL,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
 	names(toPlot)[1]<-"ID"
 	colPalette<-class.colors(toPlot$ID,colVect)
 	indiceOfID<-match(ID,toPlot$ID)
 
 	if(plot.points && !add){
-		plot(X,Y,asp=asp,pch=pch,cex=0.2,col=colPalette[indiceOfID],...)
+		plot(X,Y,asp=asp,pch=pch,cex=cex,col=colPalette[indiceOfID],...)
 	}else if(plot.points && add){
 		if(col.points){
 			col<-colPalette[indiceOfID]
 		}else{
 			col<-"black"
 		}
-		lines(X,Y,pch=pch,cex=0.2,col=col,type="p",...)
+		lines(X,Y,pch=pch,cex=cex,col=col,type="p",...)
 	}else if(!plot.points && !add){
 		plot(range(X),range(Y),asp=asp,type="n",...)
 	}
 
-	if(!col.text){
-		colPalette<-"black"
-	}
-	text(toPlot$X,toPlot$Y,toPlot$ID,col=colPalette)
+  if(!is.null(col.text)){
+   if(!col.text){
+    colPalette<-"black"
+   }
+   text(toPlot$X,toPlot$Y,toPlot$ID,col=colPalette)
+  }
+  if(legend){
+   legend(x=x.legend,y=y.legend,
+          legend=toPlot$ID,
+          col=colPalette,
+          pch=pch)
+  }
 
 	return(invisible(toPlot))
 }
