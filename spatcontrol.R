@@ -3529,7 +3529,6 @@ fit.spatautocorel<-function(db=NULL,
   }
   hist(dist_mat@entries)
   hist(Q@entries)
-  stop()
 
   # given that we set the prior in a clean way in sample_u directly, 
   # the intercept is fixed to 0
