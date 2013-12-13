@@ -2710,8 +2710,8 @@ SampleCompositeTNorm <- function(meanNorm,cNeg,cPos){
 	# cNeg: the modificator factor for negative part
 	# cPos: the modificator factor for positive part
 
-  	# compute the probability to be positive
-  	negHalfInt <- pnorm(0,mean=meanNorm,sd=1);
+  # compute the probability to be positive
+  negHalfInt <- pnorm(0,mean=meanNorm,sd=1);
 	negW <- cNeg * negHalfInt
 	posW <- cPos * (1-negHalfInt)
 	normConst <- negW + posW
@@ -2725,7 +2725,7 @@ SampleCompositeTNorm <- function(meanNorm,cNeg,cPos){
 	rand<-runif(l); # random variable
 	yPos<-which(rand<=posProb);
 	yNeg<-which(rand>posProb);
-	cat("posProb:",mean(posProb)*l,"n:",length(yPos),"\n")
+	# cat("posProb:",mean(posProb)*l,"n:",length(yPos),"\n")
 	
 	# draw the continuous value of y according to 
 	# it's positiveness
@@ -3527,6 +3527,9 @@ fit.spatautocorel<-function(db=NULL,
   }else{
 	  Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
   }
+  hist(dist_mat@entries)
+  hist(Q@entries)
+  stop()
 
   # given that we set the prior in a clean way in sample_u directly, 
   # the intercept is fixed to 0
