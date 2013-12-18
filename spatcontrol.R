@@ -3377,7 +3377,8 @@ fit.spatautocorel<-function(db=NULL,
 			    dist_mat=NULL,
 			    aggreg=NULL,
 			    y=NULL,
-			    w=NULL
+			    w=NULL,
+			    Q=NULL
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -3536,10 +3537,15 @@ fit.spatautocorel<-function(db=NULL,
 
   ## starting values
   K<-c(Ku,Kv,Kc);
-  if(use.streets){
-	  Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
+  if(is.null(Q)){
+    if(use.streets){
+      Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
+    }else{
+      Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
+    }
+    Qfixed<-TRUE
   }else{
-	  Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
+    Qfixed<-FALSE
   }
   hist(dist_mat@entries)
   hist(Q@entries)
@@ -3854,7 +3860,7 @@ if(use.streets){
 #
 
 ## save starting values
-nbtraced=23;
+nbtraced=24;
 poi<-poni<- (1-length(zNA)/dim(db)[1]) # homogeneous opening by default
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
@@ -3880,7 +3886,8 @@ sampled[1,20]<-poi;
 sampled[1,21]<-poni;
 sampled[1,22]<-io
 sampled[1,23]<-fo
-namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io", "fo")
+sampled[1,23]<-mean(as.numeric(y>0))
+namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io", "fo","meanyp")
 
 if(!fit.spatstruct){
 grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -4089,18 +4096,20 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   ## update the autocorrelation kernel
   if(fit.spatstruct){
+    if(!Qfixed){
       out<-sample_f(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern); 
       f<-out$f;
       Q<-out$Q;
       LLHu<-out$LLHu;
       cholQ<-out$cholQ;
 
-    if(use.streets==TRUE){
-      out<-sample_T(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern);
-      T<-out$T;
-      Q<-out$Q;
-      LLHu<-out$LLHu;
-      cholQ<-out$cholQ;
+      if(use.streets==TRUE){
+	out<-sample_T(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern);
+	T<-out$T;
+	Q<-out$Q;
+	LLHu<-out$LLHu;
+	cholQ<-out$cholQ;
+      }
     }
   }
 
@@ -4239,6 +4248,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,21]<-poni;
     sampled[num.simul+1,22]<-io;
     sampled[num.simul+1,23]<-fo;
+    sampled[num.simul+1,24]<-mean(yp);
 
     if(!fit.spatstruct){
 	    sampledField[num.simul+1,1]<-mean(u)
