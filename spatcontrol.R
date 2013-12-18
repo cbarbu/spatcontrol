@@ -1843,6 +1843,7 @@ check.equal.l.or.1<-function(name,vect,l){
 	}
 }
 
+# gibbs sample parameters of a binomial variable
 sample.p.of.binom<-function(npos,nneg,prior.alpha,prior.beta){
 	l<-max(length(npos),length(nneg),length(prior.alpha),length(prior.beta))
 	check.equal.l.or.1("npos",npos,l)
@@ -2850,6 +2851,19 @@ sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
   return(y);
 }
 
+# sample poi and pino
+samplePoiPino<-function(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni){
+      openned <- rep(TRUE,length(yprime))
+      openned[zNA]<-FALSE
+      nInfOpen<-length(which(yprime & openned))
+      nInfNotOpen<-length(which(yprime & ! openned))
+      poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
+
+      nNotInfOpen<-length(which(!yprime & openned))
+      nNotInfNotOpen<-length(which(!yprime & ! openned))
+      poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+      return(list(poi=poi,poni=poni))
+     }
 
 
 
@@ -3978,13 +3992,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   }
 
     if(fit.OgivP=="linear"){
-	    nInfOpen<-length(which(yprime & openned))
-	    nInfNotOpen<-length(which(yprime & ! openned))
-	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
-
-	    nNotInfOpen<-length(which(!yprime & openned))
-	    nNotInfNotOpen<-length(which(!yprime & ! openned))
-	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+      p<-samplePoiPino(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni)
+      poi<-p$poi
+      poni<-p$poni
     }else if(fit.OgivP=="probit"){
 	fo<- sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
