@@ -2668,6 +2668,26 @@ sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimensio
 	
 	return(drop(u));
 }
+# # Test against samplexuv_with_prior_u
+# cholQ<-chol(Q)
+# muPrior<-rep(0,dim(Q)[1])
+# # Kv large=> small variance non u, should be very colinear 
+# K<-c(0.1,10)
+# y<-rnorm(dim(Q)[1],0,10)
+# a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior)
+# x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR)
+# plot(a,x[1:dimension]) # should be very much on the y=x line
+# abline(a=0,b=1)
+# # Kv small=> large variance non u, should be very almost randomly distributed 
+# K<-c(0.1,0.01)
+# a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior)
+# x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR)
+# plot(a,x[1:dimension]) # should be very much on the y=x line
+# abline(a=0,b=1)
+# # benchmark 1 should be significantly faster than 2
+# out<-benchmark(a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior),
+# 	  x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR),replications=30)
+
 # enable to sample a mixture of two truncated normal with upper limit 
 # of one being the lower limit of the other and this limit being 0
 # this allow specifically to sample y, the "continuous reality" in the probit model
