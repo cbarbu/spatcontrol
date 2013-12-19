@@ -2708,8 +2708,8 @@ SampleCompositeTNorm <- function(meanNorm,cNeg,cPos){
 	# sample y given that it's density is a normalized sum of 
 	# cNeg*dnorm(meanNorm,1,-Inf,0)+cPos*dnorm(meanNorm,1,0,+Inf)
 	# meanNorm: probit predictor of y :y ~ N(meanNorm,1)
-	# cNeg: the modificator factor for negative part
-	# cPos: the modificator factor for positive part
+	# cNeg: the modificator factor/vector for negative part
+	# cPos: the modificator factor/vector for positive part
 
   # compute the probability to be positive
   negHalfInt <- pnorm(0,mean=meanNorm,sd=1);
@@ -2839,11 +2839,15 @@ sampleYpino_old<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 # Nota: if poi=poni, it is the same than not giving poi and poni
 sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
   y<-0*w
+  if(length(poi)==1){
+    poi<-rep(poi,length(w))
+    poni<-rep(poni,length(w))
+  }
   if(length(zNA)>0){ # o-
-    y[zNA] <- SampleCompositeTNorm(w[zNA],(1-poni),(1-poi))
+    y[zNA] <- SampleCompositeTNorm(w[zNA],(1-poni[zNA]),(1-poi[zNA]))
   }
   if(length(zneg)>0){ # o+, z-
-    y[zneg]<- SampleCompositeTNorm(w[zneg],poni,(1-bivect[zneg])*poi);
+    y[zneg]<- SampleCompositeTNorm(w[zneg],poni[zneg],(1-bivect[zneg])*poi[zneg]);
   }
   if(length(zpos)>0){ # o+,z+
     y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
@@ -2852,19 +2856,68 @@ sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 }
 
 # sample poi and pino
-samplePoiPino<-function(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni){
-      openned <- rep(TRUE,length(yprime))
-      openned[zNA]<-FALSE
-      nInfOpen<-length(which(yprime & openned))
-      nInfNotOpen<-length(which(yprime & ! openned))
-      poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
+samplePoiPino<-function(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni,
+			groupsOpening=as.factor(rep(1,length(yprime)))){
+  openned <- rep(TRUE,length(yprime))
+  openned[zNA]<-FALSE
+  poi<-rep(NA,length(yprime))
+  poni<-rep(NA,length(yprime))
+  for(group in levels(as.factor(groupsOpening))){
+    iGroup <- which(groupsOpening == group)
+    nInfOpen<-length(which(yprime[iGroup] & openned[iGroup]))
+    nInfNotOpen<-length(which(yprime[iGroup] & ! openned[iGroup]))
+    poi[iGroup]<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
 
-      nNotInfOpen<-length(which(!yprime & openned))
-      nNotInfNotOpen<-length(which(!yprime & ! openned))
-      poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
-      return(list(poi=poi,poni=poni))
-     }
+    nNotInfOpen<-length(which(!yprime[iGroup] & openned[iGroup]))
+    nNotInfNotOpen<-length(which(!yprime[iGroup] & ! openned[iGroup]))
+    poni[iGroup]<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+  }
+  return(list(poi=poi,poni=poni))
+}
+# # Test OK
+# # one group
+# yprime<-rbinom(100,1,0.5)
+# poi <- 0.8
+# poni <- 0.6
+# pOpen <- rep(poi,length(yprime))
+# notInf <- which(yprime==0)
+# pOpen[notInf]<-poni
+# n<-1000
+# poiEst<- mat.or.vec(n,1)
+# poniEst<- mat.or.vec(n,1)
+# for(i in 1:n){
+#   opened<-rbinom(100,1,pOpen)
+#   zNA <- which(opened == 0)
+#   out<-samplePoiPino(zNA,yprime,alpha.poi=1,beta.poi=1,
+# 		     alpha.poni=1,beta.poni=1);
+#   poiEst[i] <- out$poi[1]
+#   poniEst[i] <- out$poni[1]
+# }
+# expect_equal(out$poi[1],out$poi[1])
+# expect_equal(out$poni[1],out$poni[1])
+# Traces(cbind(poiEst,poniEst),true.vals=c(poi,poni))
 
+# # multiple groups
+# yprime<-rbinom(100,1,0.5)
+# groupsOpening <- rep(c(1,2,3,4),25)
+# poi<- rep(c(0.1,0.5,0.75,0.95),25)
+# poni<- rep(c(0.95,0.75,0.5,0.1),25)
+# pOpen <- poi
+# notInf <- which(yprime==0)
+# pOpen[notInf]<-poni[notInf]
+# n<-1000
+# poiEst<- mat.or.vec(n,4)
+# poniEst<- mat.or.vec(n,4)
+# for(i in 1:n){
+#   opened<-rbinom(100,1,pOpen)
+#   zNA <- which(opened == 0)
+#   out<-samplePoiPino(zNA,yprime,alpha.poi=1,beta.poi=1,
+# 		     alpha.poni=1,beta.poni=1,
+# 		     groupsOpening=groupsOpening);
+#   poiEst[i,] <- out$poi[1:4]
+#   poniEst[i,] <- out$poni[1:4]
+# }
+# Traces(cbind(poiEst,poniEst),true.vals=c(poi[1:4],poni[1:4]))
 
 
 dmtnorm<-function(x,mu=0,std=1,shift=0,w1=1,w2=1,logout=F){
@@ -3378,6 +3431,7 @@ fit.spatautocorel<-function(db=NULL,
 			    aggreg=NULL,
 			    y=NULL,
 			    w=NULL,
+			    groupsOpening=NULL,
 			    Q=NULL
 			    ){
   # # db should contain in columns at least:
@@ -3463,6 +3517,17 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(which(db$observed==0)),")",sep="")
   }
   cat("Account for non-observed points:",use.NA,mes,"\n") 
+  # groups for poi/poni
+  if(is.null(groupsOpening)){
+    use.groupOpen<-FALSE
+    groupsOpening<-as.factor(rep(1,dim(db)[1]))
+  }else{
+    use.groupOpen<-TRUE
+    groupsOpening<-as.factor(groupsOpening)
+    firstOfOpenGroups <- match(levels(groupsOpening),groupsOpening)
+  }
+  cat("Account for groups in opening:",use.groupOpen,"\n") 
+
   cat("Account for spatial autocorrelation:")
   if(!is.null(db$X)){
     use.spat<-TRUE
@@ -3543,9 +3608,9 @@ fit.spatautocorel<-function(db=NULL,
     }else{
       Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
     }
-    Qfixed<-TRUE
-  }else{
     Qfixed<-FALSE
+  }else{
+    Qfixed<-TRUE
   }
   hist(dist_mat@entries)
   hist(Q@entries)
@@ -3862,6 +3927,10 @@ if(use.streets){
 ## save starting values
 nbtraced=24;
 poi<-poni<- (1-length(zNA)/dim(db)[1]) # homogeneous opening by default
+if(use.groupOpen){
+  poi<-rep(poi,dim(db)[1])
+  poni<-rep(poni,dim(db)[1])
+}
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
 sampled[1,2]<-LLHu
@@ -3882,8 +3951,8 @@ sampled[1,16]<-0;
 sampled[1,17]<-0
 sampled[1,18]<-0
 sampled[1,19]<-mean(beta);
-sampled[1,20]<-poi;
-sampled[1,21]<-poni;
+sampled[1,20]<-mean(poi);
+sampled[1,21]<-mean(poni);
 sampled[1,22]<-io
 sampled[1,23]<-fo
 sampled[1,23]<-mean(as.numeric(y>0))
@@ -3915,6 +3984,12 @@ if(length(namesSampled)!=nbtraced){
 write.table(t(namesSampled),monitorfile,sep="\t",col.names=FALSE,row.names=FALSE)
 write.table(t(sampled[1,]), monitorfile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
 lastsaved<-1
+if(use.groupOpen){
+  poiPerGroup <- poi[firstOfOpenGroups]
+  poniPerGroup <- poni[firstOfOpenGroups]
+	write.table(t(poiPerGroup), "poisamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
+	write.table(t(poniPerGroup), "ponisamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
+}
 
 if(save.fields){
 	write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
@@ -3965,6 +4040,10 @@ if(use.v){
 sum.w<-rep(0,dimension);
 sum.y<-rep(0,dimension);
 sum.yp<-rep(0,dimension)
+if(use.groupOpen){
+  sum.poi<-rep(0,dimension)
+  sum.poni<-rep(0,dimension)
+}
 if(use.insp){
 	nbploted<-nbploted+1
 	sum.beta<-beta*0;
@@ -3999,7 +4078,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   }
 
     if(fit.OgivP=="linear"){
-      p<-samplePoiPino(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni)
+      p<-samplePoiPino(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni,groupsOpening)
       poi<-p$poi
       poni<-p$poni
     }else if(fit.OgivP=="probit"){
@@ -4134,8 +4213,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     if(use.insp){
       sum.beta<-sum.beta+beta;
     }
-    yp<-as.integer(y>0)
-    sum.yp<-sum.yp+yp;
+    sum.yp<-sum.yp+yprime;
+    if(use.groupOpen){
+      sum.poi <- sum.poi+poi
+      sum.poni <- sum.poni+poni
+    }
   }
   if(use.v){
     LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
@@ -4244,11 +4326,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,17]<-meanSBshare
     sampled[num.simul+1,18]<-meanSBshareNoT
     sampled[num.simul+1,19]<-mean(beta);
-    sampled[num.simul+1,20]<-poi;
-    sampled[num.simul+1,21]<-poni;
+    sampled[num.simul+1,20]<-mean(poi);
+    sampled[num.simul+1,21]<-mean(poni);
     sampled[num.simul+1,22]<-io;
     sampled[num.simul+1,23]<-fo;
-    sampled[num.simul+1,24]<-mean(yp);
+    sampled[num.simul+1,24]<-mean(yprime);
 
     if(!fit.spatstruct){
 	    sampledField[num.simul+1,1]<-mean(u)
@@ -4297,7 +4379,13 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   ### save to files every freqsave or before stopping
   if(num.simul%%freqsave==0 || num.simul==(nbiterations)){ 
 	  cat("\nSaving at",num.simul,", out of:",nbiterations," ");
-	  if(save.fields){
+  if(use.groupOpen){
+    poiPerGroup <- poi[firstOfOpenGroups]
+    poniPerGroup <- poni[firstOfOpenGroups]
+    write.table(t(poiPerGroup), "poisamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+    write.table(t(poniPerGroup), "ponisamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+  }
+  if(save.fields){
 		  write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 		  write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 		  write.table(t(o), "osamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
@@ -4356,10 +4444,18 @@ est.w<-sum.w/(nbiterations-lastAdaptProp);
 dump("est.w",file=paste("estimated.txt",sep=""),append=TRUE)
 est.yp<-sum.yp/(nbiterations-lastAdaptProp);
 dump("est.yp",file=paste("estimated.txt",sep=""),append=TRUE)
+if(use.groupOpen){
+  est.poi<-sum.poi/(nbiterations-lastAdaptProp);
+  est.poni<-sum.poni/(nbiterations-lastAdaptProp);
+}
 # save it in db
 db$krigMean<-estMean
 db$muPrior<-muPrior
 db$p.i <- est.yp
+if(use.groupOpen){
+  db$poi <- est.poi
+  db$poni <- est.poni
+}
 db$est.u <- est.u
 if(use.v){
   est.v<-sum.v/(nbiterations-lastAdaptProp);
