@@ -4232,7 +4232,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # adapt sampling
   if((num.simul)%% 20 ==0 && !adaptOK){
     adaptOK<-TRUE
-    if(fit.spatstruct){
+    if(fit.spatstruct && !Qfixed){
       # adapt sampling of T
       if(use.streets){
 	logsdTprop<-adaptSDProp(logsdTprop,acceptT)
