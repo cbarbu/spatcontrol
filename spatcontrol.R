@@ -3096,6 +3096,7 @@ metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, 
   return(new)
 }
 
+# Gibbs sample the quality of the inspectors
 samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
 	yp.positive <- yprime;
 	yp.negative <- yprime; 
