@@ -7,11 +7,12 @@ library(testthat)
 library(Hmisc)
 library(plotrix)
 library("maptools")
-library(LaplacesDemon)
+# library(LaplacesDemon) package discontinued on rcran, may need to find functions again
 library(locfit)
 library("binom")
 library(fields)
 library(boa)
+library("zoom") # as build by R CMD build zoom/
 
 source("project_specific.R")
 
@@ -54,10 +55,11 @@ star.on.pvalues<-function(pvalues){
 	return(pcodes)
 }
 
-compilLoad<-function(sourcef){
+# compile the .c if needed
+compilLoad<-function(sourcef,options=""){
 	try(file.remove(gsub(".c$",".o",sourcef)),silent=TRUE)
 	if(file.exists(sourcef)){
-		exitCode<-system(paste("R CMD SHLIB",sourcef))
+		exitCode<-system(paste("R CMD SHLIB",options,sourcef))
 		if(exitCode!=0){
 			stop("Compilation of ",sourcef," failed")
 		}else{
@@ -104,14 +106,16 @@ expect_equal(firstATrueInB(dat[,1],dat[,2]==1),c(1,0,0,1,0,0)==1)
 # extend the natural logarithm to signed numbers
 # useful for plotting of log(log(likelihood))
 signedLog<-function(signedBigNums){
-      signNum<-sign(signedBigNums)
-      signedLog<-log(abs(signedBigNums))*signNum
+      # signNum<-sign(signedBigNums)
+      # signedLog<-log(abs(signedBigNums))*signNum
+      signedLog<-log(signedBigNums-min(signedBigNums))
       return(signedLog)
 }
 
 count<-function(vect){
 	return(length(which(vect)))
 }
+# set two factor vectors to have the same levels
 getFactorsHomogeneous<-function(d1,d2){
 	# d1 y d2 tienen que 
 	for(col in 1:length(names(d1))){ # para cada columna
@@ -218,8 +222,15 @@ removeCol <- function(Table,colNames){
 ## return the matrix A extended to the given dimensions
 ## keeping the values in it
 resized<-function(A,nr=nrow(A),nc=ncol(A)){
+
 	B<-as.matrix(mat.or.vec(nr,nc));
-	B[1:(dim(A)[1]),1:dim(A)[2]]<-A
+	B[1:(dim(A)[1]),1:(dim(A)[2])]<-as.matrix(A)
+		
+	if(class(A)=="data.frame"){
+		B<-as.data.frame(B)
+		colnames(B) <- colnames(A)	
+	}
+	
 	return(B);
 }
 
@@ -289,6 +300,7 @@ LL.to.our.utms<-function(coord,utmZone=NULL,addSouth=10000000){
  	sel<-which(!is.na(coord[,1]) & !is.na(coord[,1]))
  	coordDefined<-coord[sel,] 
 	X<- Y <- rep(0,dim(coordDefined)[1])
+	names(coordDefined)<-c("lon","lat")
  
 	# auto detect utm zone if not set
 	if(is.null(utmZone)){
@@ -515,6 +527,7 @@ UseMethod("rowsum")
 fn_at_not_null.spam<-function(A,num_row,funct){
 	return(funct(A@entries[A@rowpointers[num_row]:A@rowpointers[num_row+1]]));
 }
+
 apply_by_row_not_null.spam<-function(A,funct,void.as=NA,...){
 	# extremely much faster than apply.spam
 	# careful, when row has no value this logically returns NA
@@ -690,9 +703,10 @@ pseudo_inv<-function(A){
 #--------------------------------------
 # Plotting
 #--------------------------------------
-source("zoom.r") # this should a separate package
+# source("zoom.r") # this should a separate package
+source("bfplot.R")
 
-strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","purple","yellow","grey","orange","slategrey","navyblue","darkgreen")
+strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","grey","orange","slategrey","navyblue","darkgreen")
 
 plot.palette<-function(colVect=palette()){
   N<-length(colVect)
@@ -707,12 +721,16 @@ plot.palette<-function(colVect=palette()){
 #     plot.palette()
 
 class.colors<-function(C,colVect=strongColors){
-  # return a vector of colors corresponding to the values of C understood
-  # as classes 
-  # allow call in plot(...,col=class.colors(C))
-  Cc<-as.factor(C)
-  couleurs<-sample(colVect,length(levels(Cc)),replace=TRUE)
-  return(couleurs[Cc])
+	# return a vector of colors corresponding to the values of C understood
+	# as classes 
+	# allow call in plot(...,col=class.colors(C))
+	Cc<-as.factor(C)
+	nClasses<-length(levels(Cc))
+	nSCneeded<-ceiling(nClasses/length(colVect))
+	couleurs<-rep(colVect,nSCneeded)
+	# needReplace<- nClasses>length(colVect)
+	# couleurs<-sample(colVect,length(levels(Cc)),replace=needReplace)
+	return(couleurs[as.numeric(Cc)])
 }
 plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
   # plot (X,Y) point with colors according to their C classes
@@ -721,48 +739,109 @@ plot.classes<-function(X,Y=NULL,C,asp=1,pch=15,...){
 # plot.classes(db$X,db$Y,db$GroupNum)
 
 # from a vector of real return graduated colors
-xtocolors<-function(x,crp=colorRampPalette(c("blue","green","lightgrey")),inv=FALSE,zcollim=range(x,na.rm=TRUE)){
-    # make color palette
-    zlen <- 150
-    colorlut <- crp(zlen) # height color lookup table
-    if(inv) colorlut <- rev(colorlut)
+xtocolors<-function(x,crp=colorRampPalette(c("yellow","black")),inv=FALSE,zcollim=range(x,na.rm=TRUE)){
+	# make color palette
+	zlen <- 150
+	colorlut <- crp(zlen) # height color lookup table
+	if(inv) colorlut <- rev(colorlut)
 
-    # normalize z (to ensure nice display)
-    zscol<- (zlen-1)*(x-min(zcollim)) / (max(zcollim)-min(zcollim)) # normalize zs
-    # zscol<- (zlen-1)*log(x-min(zcollim)+1) / log(max(zcollim)-min(zcollim)+1) # normalize zs
+	# the coloring function
+	beginString<-"colorFun<-function(x){"
+	# transform z in an integer in the color table 
+	normalString<-paste("zscol<- round((",zlen,"-1)*(x-",min(zcollim),") / (",max(zcollim),"-",min(zcollim),"))\n",sep="")
+	# avoid being out of the table
+	borderString<-"zscol<-pmax(pmin(zscol,zlen-1,na.rm=TRUE),0,na.rm=TRUE)\n"
+	# get color in table
+	assignString<-"cols <- crp(zlen)[ zscol+1 ]\n" 
 
-    col <- colorlut[ zscol+1 ] # assign colors to heights for each point
-    return(col)
+	endString<-"return(cols)}"
+
+	# eval the coloring function
+	a<-eval(parse(text=paste(beginString,normalString,borderString,assignString,endString)))
+
+	# initial code
+	# zscol<- (zlen-1)*(x-min(zcollim)) / (max(zcollim)-min(zcollim)) # normalize zs
+	# # zscol<- (zlen-1)*log(x-min(zcollim)+1) / log(max(zcollim)-min(zcollim)+1) # normalize zs
+	# cols <- colorlut[ zscol+1 ] # assign colors to heights for each point
+
+	# use the coloring function
+	cols<-colorFun(x)
+
+	# prepare output
+	attr(cols,"crp")<-crp
+	attr(cols,"xs")<-x
+	attr(cols,"colorFun")<-colorFun
+
+	return(cols)
 }
-# xtocolors(seq(1, 9))
 # plot.palette(xtocolors(seq(1, 9)))
 
-
+# from colors generated by x to colors make a nice scale picture
+plot.scale <- function(cols,nlev=10,digits=3){
+	crp<-attr(cols,"crp")
+	xs<-attr(cols,"xs")
+	bot<-0; top<-10 # do not change these two
+	margText<-0.8
+	plot((bot-1):top,(bot-1):top,type="n",asp=1,bty="n",axes=FALSE,xlab="",ylab="")
+	ys<-seq(bot,top,by=(top-bot)/(nlev))
+	colsPolys<-crp(nlev)
+	xspoly<-c(-0.5,0.5,0.5,-0.5)
+	for(npoly in 1:nlev){
+		yspoly<-rep(c(ys[npoly],ys[npoly+1]),each=2)
+		polygon(xspoly,yspoly,col=colsPolys[npoly],border=NA)
+	}
+	polygon(xspoly,rep(c(ys[1],ys[nlev+1]),each=2))
+	text(margText,bot,signif(min(xs,na.rm=TRUE),digits=digits),pos=4)
+	text(margText,top,signif(max(xs,na.rm=TRUE),digits=digits),pos=4)
+}
+# # ex:
+# xs<-rnorm(1000)
+# ys<-rnorm(1000)
+# zs<-dnorm(xs)*dnorm(ys)
+# cols<-xtocolors(zs)
+# par(mfrow=c(1,2))
+# plot.scale(cols)
+# plot(xs,ys,col=cols)
+# maxXs<-max(attr(cols,"xs"))
+# minXs<-min(attr(cols,"xs"))
+# colorFun<-attr(cols,"colorFun")
+# testDensities<-seq(minXs,maxXs,length.out=20)
+# points(rep(3,length(testDensities)),seq(-3,3,length.out=length(testDensities)),col=colorFun(testDensities),pch=19,cex=2)
+# 
+# plot(seq(1,
 
 # plot(X,Y,ID) groups items by ID and plot them by mean of their X,Y
-plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,...){
+plot.id<-function(X,Y,ID,plot.points=TRUE,add=FALSE,col.text=FALSE,col.points=TRUE,pch=1,cex=0.2,asp=1,colVect=strongColors,legend=FALSE,x.legend="topright",y.legend=NULL,...){
 	toPlot<-aggregate(cbind(X,Y),by=list(ID),mean,na.rm=TRUE)
 	names(toPlot)[1]<-"ID"
 	colPalette<-class.colors(toPlot$ID,colVect)
 	indiceOfID<-match(ID,toPlot$ID)
 
 	if(plot.points && !add){
-		plot(X,Y,asp=asp,pch=pch,cex=0.2,col=colPalette[indiceOfID],...)
+		plot(X,Y,asp=asp,pch=pch,cex=cex,col=colPalette[indiceOfID],...)
 	}else if(plot.points && add){
 		if(col.points){
 			col<-colPalette[indiceOfID]
 		}else{
 			col<-"black"
 		}
-		lines(X,Y,pch=pch,cex=0.2,col=col,type="p",...)
+		lines(X,Y,pch=pch,cex=cex,col=col,type="p",...)
 	}else if(!plot.points && !add){
 		plot(range(X),range(Y),asp=asp,type="n",...)
 	}
 
-	if(!col.text){
-		colPalette<-"black"
-	}
-	text(toPlot$X,toPlot$Y,toPlot$ID,col=colPalette)
+  if(!is.null(col.text)){
+   if(!col.text){
+    colPalette<-"black"
+   }
+   text(toPlot$X,toPlot$Y,toPlot$ID,col=colPalette)
+  }
+  if(legend){
+   legend(x=x.legend,y=y.legend,
+          legend=toPlot$ID,
+          col=colPalette,
+          pch=pch)
+  }
 
 	return(invisible(toPlot))
 }
@@ -826,7 +905,7 @@ boxplot.free<-function(x,breaks=c(0.025,0.25,0.5,0.75,0.975),rm.out=TRUE,...){
 ### plot of x,y points with a z scale of color black to yellow
 # base: under that coded black
 # top: above that coded yellow
-plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,...){
+plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,add=FALSE,...){
 	# if z has NA remove it
 	sel<-which(!is.na(z))
 	z<-z[sel]
@@ -855,7 +934,9 @@ plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,...){
 		zplot(x,y,pch=15,asp=1,zs=0,...)
 		zlines(x,y,pch=15,type="p",col=zcol,cex=0.6,zs=0)
 	}else{
+		if(add==FALSE){
 		plot(x,y,pch=15,asp=1,...)
+		}
 		lines(x,y,pch=15,type="p",col=zcol,cex=0.6)
 	}
 	#zcol
@@ -930,12 +1011,14 @@ adjust.lim<-function(limsmall,limbig,steps=NULL,stepsize=NULL){
 	return(list(limsmall=limsmall,limbig=limbig,stepsize=stepsize))
 }
 grid.from.sample<-function(known.x,known.y,known.z,
-	kern=expKernel,f=NULL,T=1,
-	xlim=NULL,
-	ylim=NULL,
-	pixel.size=NULL,
-	steps=NULL,
-	tr=NULL
+	kern=expKernel,  # type of kernel
+	f=NULL, 	# bandwith
+	T=1, 	# not 1 means impact factor of streets
+	xlim=NULL, # artificial limits for the extrapolation
+	ylim=NULL, # idem
+	pixel.size=NULL, # size of the cells in extrapolated
+	steps=NULL, # number of cells on the smaller border
+	tr=NULL # threshold at which the kernels stops
 	){
 	# # tr should always be set
 	# if(is.null(tr)){
@@ -1107,8 +1190,8 @@ gen.mats.neigh<-function(distances,x,y,group=NULL){
 # compute structured morans I 
 structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE,rand.sym=FALSE){
 	# distances: breaks for the classes of distance to be tested for Moran's I
-	# mats_neigh: for each class of distances the matrices of neighborhood (general, same block, different blocks)
-	# values: analysed values
+	# mats_neigh: for each class of distances the matrices of neighborhood (general, same block, different blocks), generated by gen.mats.neigh()
+	# raw.values: analysed values or a distance matrix
 	# include_streets_anal: if compute the structured by streets moran's I
 	# nb_rep_sign: number of repetitions if computing the significance
 	# rm.NA: should NA be removed/ignored?
@@ -1126,7 +1209,7 @@ structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE
 		values<-raw.values
 	}
 	breaks<-attributes(mats_neigh)$breaks
-	if(length(mats_neigh[[1]])==3){
+	if(class(mats_neigh[[1]]$SBr)=="spam"){
 		include_streets_anal<-TRUE
 	}else{
 		include_streets_anal<-FALSE
@@ -1201,15 +1284,15 @@ structured.moransI<-function(mats_neigh=NULL,raw.values,nb_rep_sign=0,rm.NA=TRUE
 legend_position<-NULL
 plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
   	breaks<-attributes(mI)$breaks
-	mI1<-mI[[1]]
-	if(length(mI[[2]])>0){
-		mI2<-mI[[2]]
-		mI3<-mI[[3]]
+	mI1<-mI$mI1
+	if(length(mI$mI2)>0){
+		mI2<-mI$mI2
+		mI3<-mI$mI3
 		include_streets_anal<-TRUE
-		if(!is.null(mI[[4]])){
+		if(!is.null(mI$difft)){
 		  plot.signif<-TRUE
 		}else{
-		  plot.signif<-TRUE
+		  plot.signif<-FALSE
 		}
 	}else{
 		include_streets_anal<-FALSE
@@ -1235,7 +1318,7 @@ plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
 
 	if(plot){
 	  if(add==FALSE){
-	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3),1.1*max(morans_I1,morans_I2,morans_I3)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Morans's I")
+	    plot(c(breaks[1],breaks[(length(breaks))]),c(0.8*min(morans_I1,morans_I2,morans_I3,na.rm=TRUE),1.1*max(morans_I1,morans_I2,morans_I3,na.rm=TRUE)),type='n',xaxt='n',xlab="Distance class (m)",ylab="Moran's I")
 	    axis(1,at=med_position,labels=legend_position)
 	  }
 	  lines(med_position,morans_I1,col=1) # black general
@@ -1245,7 +1328,7 @@ plot.structured.moransI<-function(mI,add=FALSE,neigh.struct=FALSE,plot=TRUE){
 	    legend("topright",c("Intra block","General","Inter blocks"),col=c("blue","black","red"),lty=1)
 	    if(plot.signif){
 	      dev.new()
-	      plot.signif.structured.moransI(med_position,mI[[4]],morans_I1,morans_I2,morans_I3,legend_position)
+	      plot.signif.structured.moransI(med_position,mI$difft,morans_I1,morans_I2,morans_I3,legend_position)
 	    }
 	  }
 	}
@@ -1505,6 +1588,7 @@ gen.map<-function(db,mu=-1,Ku=1,Kv=10,f=10,T=1,kern=expKernel,obs.qual=1,c.val=N
 
 
 generated.morans.struct<-function(distances,mats_neigh,nbRep,est.detection=NULL,est.Q=NULL,est.Ku=NULL,est.Kv=NULL,est.mu=NULL,est.c.comp=NULL,est.v=NULL,true.val=NULL,est.u=NULL,est.w=NULL,force.mu=FALSE,trueStatus=FALSE){
+	# mats_neigh generated by gen.mats.neigh()
 	if(is.null(est.detection)){
 		dimension<-max(c(length(est.u),length(est.v),length(est.w),dim(est.Q)[1]))
 
@@ -1591,6 +1675,7 @@ MeanCovPairAtDist<-function(mask,CovMat){
 }
 
 StructCorrel<-function(distances,Q=NULL,CovMat=NULL,mats_neigh=NULL){
+	# mats_neigh generated by gen.mats.neigh()
 	if(is.null(CovMat)){
 		if(!is.null(Q)){
 			CovMat<-solve(Q)
@@ -1626,6 +1711,7 @@ StructCorrel<-function(distances,Q=NULL,CovMat=NULL,mats_neigh=NULL){
 	return(SC)
 }
 StructNeigh<-function(distances,mats_neigh){
+	# mats_neigh generated by gen.mats.neigh()
 	
 	nb_mat<-length(mats_neigh[[1]])
 	nb_neigh<-as.data.frame(mat.or.vec(length(distances),nb_mat+1))
@@ -1757,6 +1843,7 @@ check.equal.l.or.1<-function(name,vect,l){
 	}
 }
 
+# gibbs sample parameters of a binomial variable
 sample.p.of.binom<-function(npos,nneg,prior.alpha,prior.beta){
 	l<-max(length(npos),length(nneg),length(prior.alpha),length(prior.beta))
 	check.equal.l.or.1("npos",npos,l)
@@ -2225,6 +2312,42 @@ cb.diag<-function(sampBrut,baseLimitGeweke=0.05,KthinInit=1,logfile=""){
 }
 # Ex: cb.diag(a<-matrix(rnorm(10000),ncol=10))
 
+###########################################################################
+# ESS or Effective.Size                                                          
+# Taken from: LaplacesDemon v10.12.30                                                             
+#
+# The purpose of this function is to estimate the effective sample size   
+# of a target distribution after taking autocorrelation into account.    
+# Although the code is slightly different, it is essentially the same as 
+# the effectiveSize function in the coda package.
+# This function is called inside cb.diag and thus needs to be here
+###########################################################################
+ESS <- function(x){
+     x <- as.matrix(x)
+     v0 <- order <- numeric(ncol(x))
+     names(v0) <- names(order) <- colnames(x)
+     z <- 1:nrow(x)
+     for (i in 1:ncol(x))
+          {
+          lm.out <- lm(x[, i] ~ z)
+          if (identical(all.equal(sd(residuals(lm.out)), 0), TRUE)) {
+               v0[i] <- 0
+               order[i] <- 0
+               }
+          else {
+               ar.out <- ar(x[, i], aic = TRUE)
+               v0[i] <- ar.out$var.pred/(1 - sum(ar.out$ar))^2
+               order[i] <- ar.out$order
+               }
+          }
+     spec <- list(spec = v0, order = order)
+     spec <- spec$spec
+     Eff.Size <- ifelse(spec == 0, 0, nrow(x) * apply(x, 2, var)/spec)
+     Eff.Size <- ifelse(Eff.Size > nrow(x), nrow(x), Eff.Size)
+     return(Eff.Size)
+}
+
+
 # # To perform the Gelman-Rubin (from library(boa))
 # boa.chain.gandr(list(matrixOfParamChains1,matrixOfParamChains2),alpha=0.05)
 # or simpler:
@@ -2545,6 +2668,26 @@ sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimensio
 	
 	return(drop(u));
 }
+# # Test against samplexuv_with_prior_u
+# cholQ<-chol(Q)
+# muPrior<-rep(0,dim(Q)[1])
+# # Kv large=> small variance non u, should be very colinear 
+# K<-c(0.1,10)
+# y<-rnorm(dim(Q)[1],0,10)
+# a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior)
+# x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR)
+# plot(a,x[1:dimension]) # should be very much on the y=x line
+# abline(a=0,b=1)
+# # Kv small=> large variance non u, should be very almost randomly distributed 
+# K<-c(0.1,0.01)
+# a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior)
+# x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR)
+# plot(a,x[1:dimension]) # should be very much on the y=x line
+# abline(a=0,b=1)
+# # benchmark 1 should be significantly faster than 2
+# out<-benchmark(a<-sample_u(dim(Q)[1],Q,K,y,cholQ=cholQ,prior_u_mean=muPrior),
+# 	  x <- samplexuv_with_prior_u(dimension,Q,K, y=y, nbsample=1, prior_u_mean=muPrior, cholR=cholR),replications=30)
+
 # enable to sample a mixture of two truncated normal with upper limit 
 # of one being the lower limit of the other and this limit being 0
 # this allow specifically to sample y, the "continuous reality" in the probit model
@@ -2554,16 +2697,16 @@ sample_composite_ptnorm_vect <- function(xvect,bivect){
 	# sample y given that it's density is a normalized sum of 
 	# dnorm(xvect,1,0,+Inf)*(1-beta)+dnorm(xvect,1,-Inf,0)
 	# xvect: probit predictor of y :y ~ N(xvect,1)
-	# bivect: probability of being observed as 1 vs. 0
-	l<-length(xvect);
-	# cat("l",l);
-	tunifvect<-runif(l);
+	# bivect: probability of being observed as 1 vs. 0 when y+
 	A<-pnorm(0,mean=xvect,sd=1); 	# P(y-,z-|w)=P(y-|w) as P(y-,z+)=0
-	B<-(1-A)*(1-bivect);		# P(y+,z-|w)=P(y+,obs-|w)=P(obs-|y+,w)*P(y+|w)=(1-beta)*(1-P(y-|w))
+	B<-(1-A)*(1-bivect);		# P(y+,z-|w)=P(y+,obs-|w)=P(y+|w)*P(obs-|y+,w)=(1-P(y-|w))*(1-beta)
 	area<-A+B			# P(z-)=P(y-|w)+P(y+,obs-|w)
 	samp<-B/area;			# P(y+|z-,w)=P(y+,z-|w)/P(z-)
 	samp[area==0]<-1 ; 		# avoid errors when bivect=1 and xvect>0
 
+	l<-length(xvect);
+	# cat("l",l);
+	tunifvect<-runif(l);
 	tfinal<-mat.or.vec(l,1);
 	ypos<-which(tunifvect<=samp);
 	yneg<-which(tunifvect>samp);
@@ -2581,6 +2724,70 @@ sample_composite_ptnorm_vect <- function(xvect,bivect){
 	
 	return(tfinal)
 }
+SampleCompositeTNorm <- function(meanNorm,cNeg,cPos){
+	# sample y given that it's density is a normalized sum of 
+	# cNeg*dnorm(meanNorm,1,-Inf,0)+cPos*dnorm(meanNorm,1,0,+Inf)
+	# meanNorm: probit predictor of y :y ~ N(meanNorm,1)
+	# cNeg: the modificator factor/vector for negative part
+	# cPos: the modificator factor/vector for positive part
+
+  # compute the probability to be positive
+  negHalfInt <- pnorm(0,mean=meanNorm,sd=1);
+	negW <- cNeg * negHalfInt
+	posW <- cPos * (1-negHalfInt)
+	normConst <- negW + posW
+	posProb <- posW/normConst;	
+	posProb[which(normConst==0)] <- 1 ; 
+	     # if negHalfInt =0 and cPos =0, will default to positive
+	     # to avoid catch 22 situations 	
+
+  	# identify positive and negative draws
+	l<-length(meanNorm); # cat("l",l);
+	rand<-runif(l); # random variable
+	yPos<-which(rand<=posProb);
+	yNeg<-which(rand>posProb);
+	# cat("posProb:",mean(posProb)*l,"n:",length(yPos),"\n")
+	
+	# draw the continuous value of y according to 
+	# it's positiveness
+	tfinal<-mat.or.vec(l,1);
+	if(length(yPos)>0){
+		tfinal[yPos]<- rtruncnorm(1,
+					  mean=meanNorm[yPos],
+					  sd=1,a=0,b=Inf) 
+	}
+
+	if(length(yNeg)>0){
+		tfinal[yNeg]<- rtruncnorm(1,
+					  mean=meanNorm[yNeg],
+					  sd=1,a=-Inf,b=0) 
+	}
+	
+	return(tfinal)
+}
+# # test SampleCompositeTNorm by comparison to sample_composite_ptnorm_vect
+# set.seed(777)
+# n<-1000
+# means<-rnorm(n)
+# betas <- rbeta(n,1,1)
+# set.seed(777)
+# y1<-sample_composite_ptnorm_vect(means,betas)
+# set.seed(777)
+# y2<-SampleCompositeTNorm(means,1,1-betas)
+# expect_equal(y1,y2)
+# # test that SampleCompositeTNorm is the same than rtruncnorm one c is 0
+# set.seed(777)
+# y1<-SampleCompositeTNorm(means,0,betas)
+# set.seed(777)
+# rand<-runif(length(means)); # just to keep same random generation seq
+# y2 <- rtruncnorm(1,mean=means,sd=1,a=0,b=Inf)
+# expect_equal(y1,y2)
+# set.seed(777)
+# y1<-SampleCompositeTNorm(means,betas,0)
+# set.seed(777)
+# rand<-runif(length(means)); # just to keep same random generation seq
+# y2 <- rtruncnorm(1,mean=means,sd=1,a=-Inf,b=0)
+# expect_equal(y1,y2)
 
 # from there we can sample y which is sampled differently according to the observation or not of bugs in the data
 sample_y_direct <-function(w,zpos,zneg,zNA,bivect){
@@ -2632,7 +2839,7 @@ sampleYNApino<-function(wNA,poi,poni){
 
 	return(yNA)
 }
-sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+sampleYpino_old<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 	y<-0*w
 	if(length(zpos)>0){
 		y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
@@ -2648,7 +2855,89 @@ sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
 
 	return(y);
 }
+# sample y according to poi, poni, beta
+# Nota: if poi=poni, it is the same than not giving poi and poni
+sampleYpino<-function(w,poi,poni,zpos,zneg,zNA,bivect){
+  y<-0*w
+  if(length(poi)==1){
+    poi<-rep(poi,length(w))
+    poni<-rep(poni,length(w))
+  }
+  if(length(zNA)>0){ # o-
+    y[zNA] <- SampleCompositeTNorm(w[zNA],(1-poni[zNA]),(1-poi[zNA]))
+  }
+  if(length(zneg)>0){ # o+, z-
+    y[zneg]<- SampleCompositeTNorm(w[zneg],poni[zneg],(1-bivect[zneg])*poi[zneg]);
+  }
+  if(length(zpos)>0){ # o+,z+
+    y[zpos]<- rtruncnorm(1,mean=w[zpos],sd=1,a=0,b=Inf);
+  }
+  return(y);
+}
 
+# sample poi and pino
+samplePoiPino<-function(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni,
+			groupsOpening=as.factor(rep(1,length(yprime)))){
+  openned <- rep(TRUE,length(yprime))
+  openned[zNA]<-FALSE
+  poi<-rep(NA,length(yprime))
+  poni<-rep(NA,length(yprime))
+  for(group in levels(as.factor(groupsOpening))){
+    iGroup <- which(groupsOpening == group)
+    nInfOpen<-length(which(yprime[iGroup] & openned[iGroup]))
+    nInfNotOpen<-length(which(yprime[iGroup] & ! openned[iGroup]))
+    poi[iGroup]<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
+
+    nNotInfOpen<-length(which(!yprime[iGroup] & openned[iGroup]))
+    nNotInfNotOpen<-length(which(!yprime[iGroup] & ! openned[iGroup]))
+    poni[iGroup]<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+  }
+  return(list(poi=poi,poni=poni))
+}
+# # Test OK
+# # one group
+# yprime<-rbinom(100,1,0.5)
+# poi <- 0.8
+# poni <- 0.6
+# pOpen <- rep(poi,length(yprime))
+# notInf <- which(yprime==0)
+# pOpen[notInf]<-poni
+# n<-1000
+# poiEst<- mat.or.vec(n,1)
+# poniEst<- mat.or.vec(n,1)
+# for(i in 1:n){
+#   opened<-rbinom(100,1,pOpen)
+#   zNA <- which(opened == 0)
+#   out<-samplePoiPino(zNA,yprime,alpha.poi=1,beta.poi=1,
+# 		     alpha.poni=1,beta.poni=1);
+#   poiEst[i] <- out$poi[1]
+#   poniEst[i] <- out$poni[1]
+# }
+# expect_equal(out$poi[1],out$poi[1])
+# expect_equal(out$poni[1],out$poni[1])
+# Traces(cbind(poiEst,poniEst),true.vals=c(poi,poni))
+
+# # multiple groups
+# yprime<-rbinom(100,1,0.5)
+# groupsOpening <- rep(c(1,2,3,4),25)
+# poi<- rep(c(0.1,0.5,0.75,0.95),25)
+# poni<- rep(c(0.95,0.75,0.5,0.1),25)
+# pOpen <- poi
+# notInf <- which(yprime==0)
+# pOpen[notInf]<-poni[notInf]
+# n<-1000
+# poiEst<- mat.or.vec(n,4)
+# poniEst<- mat.or.vec(n,4)
+# for(i in 1:n){
+#   opened<-rbinom(100,1,pOpen)
+#   zNA <- which(opened == 0)
+#   out<-samplePoiPino(zNA,yprime,alpha.poi=1,beta.poi=1,
+# 		     alpha.poni=1,beta.poni=1,
+# 		     groupsOpening=groupsOpening);
+#   poiEst[i,] <- out$poi[1:4]
+#   poniEst[i,] <- out$poni[1:4]
+# }
+# Traces(cbind(poiEst,poniEst),true.vals=c(poi[1:4],poni[1:4]))
 
 
 dmtnorm<-function(x,mu=0,std=1,shift=0,w1=1,w2=1,logout=F){
@@ -2991,17 +3280,19 @@ sample_v<-function(ynotv,Kv){
 ## w is the probit predictor of infestation for each house
 ## fo scales impact of w on o
 sample_io <- function(o, w, fo = 1, prior_io_mean = 0, prior_io_var = 2){
-## given io ~ N(prior_io_mean, 2)
+## given io ~ N(prior_io_mean, prior_io_var)
 ## given o ~ N(fo*w+io, 1) <=> o-fo*w ~ N(io, 1)
 ## then io | o, fo, w ~ N(following)
 
-	# cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
-	meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))/(1/prior_io_var + length(o))
-	sdPost <- sqrt(1/(1/prior_io_var + length(o)))
-	# print(summary(sdPost))
-	io <- rnorm(1, mean=meanPost, sd=sdPost)
+  # cat("fo=",fo,"mean(o)=",mean(o),"mean(w)=",mean(w), "\n")
 
-	return(io)
+  varPost <- 1/(1/prior_io_var + length(o))
+  meanPost <- (prior_io_mean/prior_io_var + sum(o-fo*w))*varPost
+  sdPost <- sqrt(varPost)
+  # print(summary(sdPost))
+  io <- rnorm(1, mean=meanPost, sd=sdPost)
+
+  return(io)
 }
 
 ## o is the probit of opening for each house
@@ -3036,8 +3327,8 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # where [K*Q + (1+fo)I] is the precision matrix of the multivariate normal
 
 	
-	R <- K[1]*Q + diag.spam(1+fo,dimension);
-	center <- diag.spam(1, dimension)%*%(y+fo*(o-io)) + K[1]*Q%*%prior_u_mean;
+	R <- K[1]*Q + diag.spam(1+abs(fo),dimension);
+	center <- diag.spam(1, dimension)%*%(y+(o-io)) + K[1]*Q%*%prior_u_mean;
 	center <- as.vector(center)
 	u <- rmvnorm.canonical(n=1, b=center, Q=R,Rstruct=cholQ);
 	
@@ -3048,6 +3339,7 @@ sample_u_with_o <- function(dimension, Q, K, y, o, io, fo=1, cholQ = NULL, prior
 # o is the probit for opening for each house
 # io is the shift parameter (same over all houses)
 # w is the spatial component of infestation over all houses (may include error term)
+# prior checked numerically for no data, with data may be wrong(CB)
 sample_fo <- function(o, io, w, prior_fo_mean = 1, prior_fo_var = 2){
 
 	## Added in ^-1 as instructed by CB	
@@ -3097,11 +3389,11 @@ metropolis_sample_fo <- function(fo, o, io, w, prior_fo_mean=1, prior_fo_var=2, 
 }
 
 # Gibbs sample the quality of the inspectors
-samplebeta <- function(zpos,zneg,matrix,yprime,a,b) {
+samplebeta <- function(zpos,zneg,matrix,yprime,a,b){
 	yp.positive <- yprime;
 	yp.negative <- yprime; 
-	yp.positive[-zpos] <- 0; # z- turn y+ into 0 a.pos being then the sum of the y+ well observed
-	yp.negative[-zneg] <- 0; # z+ turn y+ into 0 a.neg being then the sum of the y+ badly observed 
+	yp.positive[-zpos] <- 0; # z- turns y+ into 0 a.pos being then the sum of the y+ well observed
+	yp.negative[-zneg] <- 0; # z+ turns y+ into 0 a.neg being then the sum of the y+ badly observed 
 	# the NA are not apparent here
 	a.pos <- (as.vector(t(matrix) %*% yp.positive) + a); 
 	b.pos <- (as.vector(t(matrix) %*% yp.negative) + b); 
@@ -3132,8 +3424,19 @@ subsetAround <- function (priordatafullmap, reportsUnicodes, threshold, ...) {
   return(subprior)
 }
 
+# from an odd ratio and the prevalence in population at the numerator
+# get the prevalence in the denominator population according to
+# OR = ((pn)/(1-pn))/((pd)/(1-pd))
+ORtoPrevDenominator <- function(or,prevNumerator){
+  prevDenominator <- 1/(1+or/(prevNumerator/(1-prevNumerator))) # from OR to prev
+  return(prevDenominator)
+}
+
+#' @title main function for fit of GMRF to incomplete binary data
+#' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
+#'          inspectors quality and number of iterations
 fit.spatautocorel<-function(db=NULL,
-			    pfile="parameters_extrapol.r",
+			    pfile="parameters_extrapol.R",
 			    fit.spatstruct=TRUE,
 			    use.generated=FALSE,
 			    make.map.cofactors=FALSE,
@@ -3146,7 +3449,11 @@ fit.spatautocorel<-function(db=NULL,
 			    save.fields=FALSE,
 			    fit.OgivP=FALSE,
 			    dist_mat=NULL,
-			    aggreg=NULL
+			    aggreg=NULL,
+			    y=NULL,
+			    w=NULL,
+			    groupsOpening=NULL,
+			    Q=NULL
 			    ){
   # # db should contain in columns at least:
   # X 
@@ -3231,6 +3538,17 @@ fit.spatautocorel<-function(db=NULL,
     mes<-paste("(",length(which(db$observed==0)),")",sep="")
   }
   cat("Account for non-observed points:",use.NA,mes,"\n") 
+  # groups for poi/poni
+  if(is.null(groupsOpening)){
+    use.groupOpen<-FALSE
+    groupsOpening<-as.factor(rep(1,dim(db)[1]))
+  }else{
+    use.groupOpen<-TRUE
+    groupsOpening<-as.factor(groupsOpening)
+    firstOfOpenGroups <- match(levels(groupsOpening),groupsOpening)
+  }
+  cat("Account for groups in opening:",use.groupOpen,"\n") 
+
   cat("Account for spatial autocorrelation:")
   if(!is.null(db$X)){
     use.spat<-TRUE
@@ -3298,18 +3616,25 @@ fit.spatautocorel<-function(db=NULL,
   }
   cat("Fit autocorrelation structure:",fit.spatstruct)
   if(!fit.spatstruct){
-	  cat(" (f=",f,";T=",T,";Ku=",Ku,sep="")
+	  cat(" (f=",f,";T=",T,";tr=",threshold,";Ku=",Ku,sep="")
 	  if (use.v) cat(";Kv=",Kv,sep="")
 	  cat(")\n",sep="");
   }
 
   ## starting values
   K<-c(Ku,Kv,Kc);
-  if(use.streets){
-	  Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
+  if(is.null(Q)){
+    if(use.streets){
+      Q<-QfromfT(dist_mat,SB,f,T,kern=kern);
+    }else{
+      Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
+    }
+    Qfixed<-FALSE
   }else{
-	  Q<-QfromfT(dist_mat,SB,f,T=1,kern=kern);
+    Qfixed<-TRUE
   }
+  hist(dist_mat@entries)
+  hist(Q@entries)
 
   # given that we set the prior in a clean way in sample_u directly, 
   # the intercept is fixed to 0
@@ -3325,54 +3650,73 @@ fit.spatautocorel<-function(db=NULL,
   initPos[db$observed==0]<-NA
   estMean<-krig.weightMat(initPos,QnoDiag)+epsilonProba # mean(db$positive[db$observed==1])
   meanBeta<-abeta/(abeta+bbeta)
+  if(is.na(meanBeta)) meanBeta<-0.5
   estMean<-estMean/meanBeta # correct for prior on non-observed
   estMean[estMean>=1] <- 1-epsilonProba
-  estMean[db$observed!=1]<-estMean[db$observed!=1]/factMuPriorNonObs
+  estMean[db$observed!=1]<- ORtoPrevDenominator(ORMuPriorNonObs,estMean[db$observed!=1])
   diag(QnoDiag)<- 0
   estSD<-sqrt(1+1/Kv+1/(Ku*(apply_by_row_not_null.spam(QnoDiag,sum)+epsilon))) # Nota: this implies that things "close to almost isolated households" will be pulled downward a little bit by the isolated"),
-  muInit<-qnorm(estMean,mean=0,sd=estSD)
-  muInit[is.na(muInit)]<-qnorm(mean(estMean,na.rm=TRUE)/factMuPriorNonObs,mean=0,sd=estSD[is.na(muInit)])
   if(!is.null(mu)){
-	  muInit<-rep(mu,dimension);
-	  cat("Mu init homogenous:",mu,"\n")
+    muInit<-rep(mu,dimension);
+    cat("Mu init homogenous:",mu,"\n")
   }else{
-	  cat("Mu init reflecting krigging\n")
+    muInit<-qnorm(estMean,mean=0,sd=estSD)
+    muInit[is.na(muInit)]<-qnorm(ORtoPrevDenominator(ORMuPriorNonObs,
+						     mean(estMean,na.rm=TRUE)),
+				 mean=0,sd=estSD[is.na(muInit)])
+    cat("Mu init reflecting krigging\n")
   }
-
   if(is.null(muPriorObs)){
-	  muPrior<-muInit
-	  obs<-db$positive
-	  obs[db$observed==0]<-0.5
-	  dev.new()
-	  par(mfrow=c(2,2))
-	  plot_reel(db$X,db$Y,obs,base=0,top=1,main="Observed")
-	  plot_reel(db$X,db$Y,estMean,base=0,main="Krigged Mean")
-	  plot_reel(db$X,db$Y,estSD,base=0,top=max(estSD),main="PriorSD")
-	  plot_reel(db$X,db$Y,muPrior,base=-5,top=3,main="prior Mu")
-	  # in addition can check with 
-	  # retroPrior<-pnorm(muPrior,0,estSD)
-	  # with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="retroPrior"))
-
-	  cat("Personalyze muPrior following prior mu\n")
-  }else if (muPriorObs=="useFactNA"){
-	estSD<-sqrt(1+1/Ku+1/Kv)
-	muPriorObs <- qnorm(mean(db$positive[db$observed==1]),mean=0,sd=estSD)
-  	muPriorNonObs<- qnorm(mean(db$positive[db$observed==1])/factMuPriorNonObs,mean=0,sd=estSD)
-	muPrior<-rep(0,dimension)
-	muPrior[db$observed!=1]<-muPriorNonObs
-	muPrior[db$observed==1]<-muPriorObs
-	cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorNonObs,"\n")
-  }else{
-	  muPrior<-rep(muPriorObs,dim(Q)[1])
-	  cat("muPriorObs:",muPriorObs,"muPriorNonObs:",muPriorObs,"\n")
+    muPriorObs <- "QuseAverage"
   }
+
+  if(muPriorObs == "Qkrigging"){
+    muPrior<-muInit
+    cat("muPrior follows krigged observed value, on average:\n")
+  }else if (muPriorObs=="QuseAverage"){
+    prevInOpen <- mean(db$positive[db$observed==1])
+    muPriorObs <- qnorm(prevInOpen,mean=0,sd=estSD[db$observed==1])
+
+    prevInNonObs <- ORtoPrevDenominator(ORMuPriorNonObs,prevInOpen)
+    muPriorNonObs<- qnorm(prevInNonObs,mean=0,sd=estSD[db$observed!=1])
+
+    muPrior<-rep(0,dimension)
+    muPrior[db$observed!=1]<-muPriorNonObs
+    muPrior[db$observed==1]<-muPriorObs
+  }else{
+    muPrior<-rep(muPriorObs,dim(Q)[1])
+  }
+  prevInOpen <- pnorm(muPrior[db$observed==1],0,estSD[db$observed==1])
+  prevInNonObs <- pnorm(muPrior[db$observed==0],0,estSD[db$observed==0])
+  muPriorObs <- muPrior[db$observed == 1]
+  muPriorNonObs <- muPrior[db$observed == 0]
+  cat("muPriorObs:",mean(muPriorObs),"(",mean(prevInOpen),"%), muPriorNonObs:",
+      mean(muPriorNonObs),"(",mean(prevInNonObs),"%)\n")
+
+  dev.new()
+  par(mfrow=c(2,3))
+  obs<-db$positive
+  obs[db$observed==0]<-0.5
+  plot_reel(db$X,db$Y,obs,base=0,top=1,main="Observed")
+  plot_reel(db$X,db$Y,estMean,base=0,main="Krigged Mean")
+  plot_reel(db$X,db$Y,estSD,base=0,top=max(estSD),main="PriorSD")
+  plot_reel(db$X,db$Y,muPrior,base=-5,top=3,main="prior Mu")
+  # in addition can check with 
+  retroPrior<-pnorm(muPrior,0,estSD)
+  with(db,plot_reel(X,Y,retroPrior,base=0,top=1,main="p from muPrior"))
+  db$pPrior <- retroPrior
+
+  cat("check priors in table\n")
+  cat("prior p:",quantile(db$pPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
+  cat("prior mu:",quantile(muPrior,probs=c(0,0.025,0.25,0.5,0.75,0.975,1)),"\n")
+
   cat("Intercept:",intercept,"\n")
   db$status<-rep(0,dim(db)[1])
   db$status[db$observed!=1]<-9
   db$status[db$positive==1]<-1
   INTERMEDIARY<-FALSE
 
-  cat("Account for local noise:",use.v,"\n")
+  cat("Account for local noise (v):",use.v,"\n")
 
   # should have here kernel used etc...
 
@@ -3406,7 +3750,7 @@ fit.spatautocorel<-function(db=NULL,
     }
     inspector <- as.spam(inspector);
 
-    beta<-rep(1,length(inspectors))
+    beta<-rep(0.5,length(inspectors))
     bivect <- as.vector(inspector %*% beta);
     # par(mfrow=c(1,1))
   }else{
@@ -3465,6 +3809,7 @@ b <- c(abeta,bbeta) # hyperparameters of the detection quality
 
 if(visu.progression){
   ## priors plotting
+  dev.new()
   par(mfrow=c(1,nparam))
 
   xabs<-seq(0.001,5*fprior,0.1)
@@ -3508,14 +3853,25 @@ if(use.insp){
 cholQ<-chol(Q);
 
 u<-muPrior;
-y<-muPrior;
+if(is.null(y)){
+  y<-muPrior;
+  sampleY<-TRUE
+}else{
+  sampleY<-FALSE
+  cat("Not sampling y\n")
+}
+
 yprime <- (y>0);
+if(is.null(w)){
+  w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
+  sampleW<-TRUE
+}else{
+  sampleW<-FALSE
+}
 if(use.v){
-w <- u # rnorm(dimension,u,sqrt((K[2])^(-1)));
 v<-w-u;
 x <- c(u, w);
 }else{
-  w<-u
   v<-0*u
   x<-c(u,w)
 }
@@ -3590,8 +3946,12 @@ if(use.streets){
 #
 
 ## save starting values
-nbtraced=23;
-poi<-poni<- (1-length(zNA)/dim(db)[1])
+nbtraced=24;
+poi<-poni<- (1-length(zNA)/dim(db)[1]) # homogeneous opening by default
+if(use.groupOpen){
+  poi<-rep(poi,dim(db)[1])
+  poni<-rep(poni,dim(db)[1])
+}
 sampled<-as.matrix(mat.or.vec(nbiterations+1,nbtraced));
 sampled[1,1]<-T;
 sampled[1,2]<-LLHu
@@ -3612,11 +3972,12 @@ sampled[1,16]<-0;
 sampled[1,17]<-0
 sampled[1,18]<-0
 sampled[1,19]<-mean(beta);
-sampled[1,20]<-poi;
-sampled[1,21]<-poni;
+sampled[1,20]<-mean(poi);
+sampled[1,21]<-mean(poni);
 sampled[1,22]<-io
 sampled[1,23]<-fo
-namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io", "fo")
+sampled[1,23]<-mean(as.numeric(y>0))
+namesSampled<-c("T","LLHTu","f","LLHfu","Ku","LLHy","LLH","LLHyw","i","Kv","mu","Kc","LLHv","LLHc","LLHb","LLHTotal","meanSBshare","meanSBshareNoT","meanBeta","poi","poni", "io", "fo","meanyp")
 
 if(!fit.spatstruct){
 grid.stab<-seq(1,length(w),ceiling(length(w)/5))# values of the field tested for stability, keep 5 values
@@ -3644,6 +4005,12 @@ if(length(namesSampled)!=nbtraced){
 write.table(t(namesSampled),monitorfile,sep="\t",col.names=FALSE,row.names=FALSE)
 write.table(t(sampled[1,]), monitorfile, sep="\t",col.names=FALSE,row.names=FALSE,append=TRUE)
 lastsaved<-1
+if(use.groupOpen){
+  poiPerGroup <- poi[firstOfOpenGroups]
+  poniPerGroup <- poni[firstOfOpenGroups]
+	write.table(t(poiPerGroup), "poisamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
+	write.table(t(poniPerGroup), "ponisamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
+}
 
 if(save.fields){
 	write.table(t(u), "usamples.txt", sep="\t",col.names=FALSE,row.names=FALSE);
@@ -3694,6 +4061,10 @@ if(use.v){
 sum.w<-rep(0,dimension);
 sum.y<-rep(0,dimension);
 sum.yp<-rep(0,dimension)
+if(use.groupOpen){
+  sum.poi<-rep(0,dimension)
+  sum.poni<-rep(0,dimension)
+}
 if(use.insp){
 	nbploted<-nbploted+1
 	sum.beta<-beta*0;
@@ -3720,32 +4091,41 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # cat("c.val",c.val,"mw",mean(w),"Kv",Kv,"my",mean(y),"\n")
 
     # update y (latent infestation variable)
+  if(sampleY){
     # y<-sample_y_direct(w,zpos,zneg,zNA,bivect);
     y<-sampleYpino(w,poi,poni,zpos,zneg,zNA,bivect);
     yprime <- (y>0);
     # cat("meany:",mean(y),"sums zpos",sum(zpos),"neg",sum(zneg),"NA",sum(zNA),"b",mean(bivect))
+  }
 
     if(fit.OgivP=="linear"){
-	    nInfOpen<-length(which(yprime & openned))
-	    nInfNotOpen<-length(which(yprime & ! openned))
-	    poi<-sample.p.of.binom(nInfOpen,nInfNotOpen,alpha.poi,beta.poi)
-
-	    nNotInfOpen<-length(which(!yprime & openned))
-	    nNotInfNotOpen<-length(which(!yprime & ! openned))
-	    poni<-sample.p.of.binom(nNotInfOpen,nNotInfNotOpen,alpha.poni,beta.poni)
+      p<-samplePoiPino(zNA,yprime,alpha.poi,beta.poi,alpha.poni,beta.poni,groupsOpening)
+      poi<-p$poi
+      poni<-p$poni
     }else if(fit.OgivP=="probit"){
-	fo<-sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	fo<- sample_fo(o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
 	# fo<-metropolis_sample_fo(fo,o,io,w,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
-	io<-sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
+	io<- sample_io(o,w, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
 	o<-sample_o(oprime,w,io,fo=fo)
+    }else if(fit.OgivP=="stdProbit"){
+        mw <- mean(w)
+        sw <- sd(w)
+	ws <- (w - mw)/sw
+	fo<- sample_fo(o,io,ws,prior_fo_mean=prior.fo.mean,prior_fo_var=prior.fo.var)
+	io<- sample_io(o,ws, fo=fo,prior_io_mean=prior.io.mean,prior_io_var=prior.io.var)
+	o<-sample_o(oprime,ws,io,fo=fo)
     }
 
+    if(sampleW){
     # update "r" the spatial component and/or non-spatial noise 
     if(use.spat){ # spatial component
       if(use.v){ # local error
+        # TODO: should be rewritten to avoid multiple calls to samplexuv just change arguments initially ane in samplexuv go fast if can
 	if(fit.spatstruct){
 	 if(fit.OgivP == "probit"){
-	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+fo*(o-io), nbsample=(1+fo), prior_u_mean=muPrior, cholR=cholR);
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
+	 }else if(fit.OgivP == "stdProbit"){
+	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io+fo*mw/sw), nbsample=(1+abs(fo/sw)), prior_u_mean=muPrior, cholR=cholR);
 	 }else{
 	   x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept, nbsample=1, prior_u_mean=muPrior, cholR=cholR);
 	   
@@ -3758,11 +4138,16 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	  Kv<-K[[2]];
 	  # cat("Ku",Ku,"Kv",Kv,"\n");
 	}else{
-		
-	 if(fit.OgivP == "probit"){
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept+fo*(o-io), prior_u_mean=muPrior);
-	 }else{	
-	  x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
+	  if(fit.OgivP == "probit"){
+	    #   x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y=y-wnotr-intercept+(o-io), prior_u_mean=muPrior);
+	    # problem: samplexuv_with_prior_u was not updating
+	    #     the diagonal of R according to fo! big pb
+
+	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io), nbsample=(1+abs(fo)), prior_u_mean=muPrior, cholR=cholR);
+	 }else if(fit.OgivP == "stdProbit"){
+	    x <- samplexuv_with_prior_u(dimension,Q,K, y=y-wnotr-intercept+(o-io+fo*mw/sw), nbsample=(1+abs(fo/sw)), prior_u_mean=muPrior, cholR=cholR);
+	  }else{	
+	    x <- fastsamplexuv_with_prior_u(dimension,cholR, R_prime, y-wnotr-intercept, prior_u_mean=muPrior);
 	 }
 	}
 	u<-x[1:dimension];
@@ -3802,6 +4187,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
       wnotr<-0*w
     }
     w<-wnoc+wnotr+intercept
+    }
 
   if(fit.spatstruct){
     LLHu<-llh.ugivQ(dimension,u,Q,Ku,cholQ=cholQ) 
@@ -3810,23 +4196,26 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 
   ## update the autocorrelation kernel
   if(fit.spatstruct){
+    if(!Qfixed){
       out<-sample_f(u,Ku,T,logsdfprop,f,mf,sdlf,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern); 
       f<-out$f;
       Q<-out$Q;
       LLHu<-out$LLHu;
       cholQ<-out$cholQ;
 
-    if(use.streets==TRUE){
-      out<-sample_T(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern);
-      T<-out$T;
-      Q<-out$Q;
-      LLHu<-out$LLHu;
-      cholQ<-out$cholQ;
+      if(use.streets==TRUE){
+	out<-sample_T(u,Ku,f,T,logsdTprop,mT,sdT,Q,LLHu,AS,SB,cholQ=cholQ,Dmat=dist_mat,kern=kern);
+	T<-out$T;
+	Q<-out$Q;
+	LLHu<-out$LLHu;
+	cholQ<-out$cholQ;
+      }
     }
   }
 
   # update inspectors sensitivity
   if(use.insp){
+    # beta <- beta.real
     beta <- samplebeta(zpos,zneg,inspector,yprime,abeta,bbeta);
     bivect <- as.vector(inspector %*% beta);
     # cat("beta (",mean(beta),",",sd(beta),") suminsp",sum(inspector),"sumyp",sum(yprime));
@@ -3845,8 +4234,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     if(use.insp){
       sum.beta<-sum.beta+beta;
     }
-    yp<-as.integer(y>0)
-    sum.yp<-sum.yp+yp;
+    sum.yp<-sum.yp+yprime;
+    if(use.groupOpen){
+      sum.poi <- sum.poi+poi
+      sum.poni <- sum.poni+poni
+    }
   }
   if(use.v){
     LLHv<-sum(dnorm(v,0,Kv,log=TRUE));
@@ -3861,7 +4253,7 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   # adapt sampling
   if((num.simul)%% 20 ==0 && !adaptOK){
     adaptOK<-TRUE
-    if(fit.spatstruct){
+    if(fit.spatstruct && !Qfixed){
       # adapt sampling of T
       if(use.streets){
 	logsdTprop<-adaptSDProp(logsdTprop,acceptT)
@@ -3955,10 +4347,11 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
     sampled[num.simul+1,17]<-meanSBshare
     sampled[num.simul+1,18]<-meanSBshareNoT
     sampled[num.simul+1,19]<-mean(beta);
-    sampled[num.simul+1,20]<-poi;
-    sampled[num.simul+1,21]<-poni;
+    sampled[num.simul+1,20]<-mean(poi);
+    sampled[num.simul+1,21]<-mean(poni);
     sampled[num.simul+1,22]<-io;
     sampled[num.simul+1,23]<-fo;
+    sampled[num.simul+1,24]<-mean(yprime);
 
     if(!fit.spatstruct){
 	    sampledField[num.simul+1,1]<-mean(u)
@@ -4007,7 +4400,13 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
   ### save to files every freqsave or before stopping
   if(num.simul%%freqsave==0 || num.simul==(nbiterations)){ 
 	  cat("\nSaving at",num.simul,", out of:",nbiterations," ");
-	  if(save.fields){
+  if(use.groupOpen){
+    poiPerGroup <- poi[firstOfOpenGroups]
+    poniPerGroup <- poni[firstOfOpenGroups]
+    write.table(t(poiPerGroup), "poisamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+    write.table(t(poniPerGroup), "ponisamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
+  }
+  if(save.fields){
 		  write.table(t(u), "usamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 		  write.table(t(w), "wsamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
 		  write.table(t(o), "osamples.txt", sep="\t",append=TRUE,col.names=FALSE,row.names=FALSE);
@@ -4059,16 +4458,25 @@ cat("Time main loop:",mainLoopStop-mainLoopStart,"\n")
 
 nbiterations<-(num.simul-1)
 est.u<-sum.u/(nbiterations-lastAdaptProp);
-dump("est.u",file=paste("estimated.txt",sep=""),append=TRUE)
+dump("est.u",file=paste("estimated.txt",sep=""),append=FALSE)
 est.y<-sum.y/(nbiterations-lastAdaptProp);
 dump("est.y",file=paste("estimated.txt",sep=""),append=TRUE)
 est.w<-sum.w/(nbiterations-lastAdaptProp);
 dump("est.w",file=paste("estimated.txt",sep=""),append=TRUE)
 est.yp<-sum.yp/(nbiterations-lastAdaptProp);
 dump("est.yp",file=paste("estimated.txt",sep=""),append=TRUE)
+if(use.groupOpen){
+  est.poi<-sum.poi/(nbiterations-lastAdaptProp);
+  est.poni<-sum.poni/(nbiterations-lastAdaptProp);
+}
 # save it in db
 db$krigMean<-estMean
+db$muPrior<-muPrior
 db$p.i <- est.yp
+if(use.groupOpen){
+  db$poi <- est.poi
+  db$poni <- est.poni
+}
 db$est.u <- est.u
 if(use.v){
   est.v<-sum.v/(nbiterations-lastAdaptProp);
@@ -4098,8 +4506,8 @@ save(list=ls(),file="EndSampleImage.img") # allow to examine the environment lat
 
 dev.new()
 par(mfrow=c(2,2))
-plot_reel(db$X,db$Y,db$obs,base=0,top=1,main="Observed")
-plot_reel(db$X,db$Y,db$estMean,base=0,main="Krigged Mean")
+plot_reel(db$X,db$Y,db$observed,base=0,top=1,main="Observed")
+plot_reel(db$X,db$Y,db$krigMean,base=0,main="Krigged Mean")
 plot_reel(db$X,db$Y,db$muPrior,base=-5,top=3,main="prior Mu")
 plot_reel(db$X,db$Y,db$p.i,base=0,top=1,main="posterior proba")
 # in addition can check with 
@@ -4190,6 +4598,7 @@ get.betas<-function(samples=NULL,file=betafile,dbFit=NULL){
 }
 traces<-function(db,nl=3,nc=4,true.vals=NULL){
   db<-as.data.frame(db)
+
   pch <- "."
   if(dim(db)[1]>100){
     type="p"
@@ -4197,17 +4606,26 @@ traces<-function(db,nl=3,nc=4,true.vals=NULL){
     type="l"
   }
   for(num in 1:length(names(db))){
+	  cat("plotting:",names(db)[num],"\n")
+	  # cleanup variable from NaN
+	  var <- db[[num]]
+	  var <- var[is.finite(var)]
+	  if(length(var)==0){
+	    cat("No finite values\n")
+	    next 
+	  }
+
 	  if(num %% (nl*nc) ==1){ 
 		  dev.new()
 		  par(mfrow=c(nl,nc))
 	  }
 	  name<-names(db)[num]
 	  if(name %in% names(true.vals)){
-		  ylim<-range(true.vals[[name]],db[[num]])
+		  ylim<-range(true.vals[[name]],var)
 	  }else{
-		  ylim<-range(db[[num]])
+		  ylim<-range(var)
 	  }
-	  plot(db[[num]],main=name,pch=pch,type=type,ylim=ylim)
+	  plot(var,main=name,pch=pch,type=type,ylim=ylim)
 	  if(name %in% names(true.vals)){
 		  abline(h=true.vals[[name]],col="green")
 	  }
@@ -4262,8 +4680,9 @@ trace.mcmc<-function(samples=NULL,dbFit=NULL){
 
   return(invisible(list(sampled=sampled,c.vals=c.vals,betas=betas)))
 }
-get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
-  C<-C[which(!is.infinite(C))]
+get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL,visuQuant=TRUE,add=FALSE,...){
+	C<-C[which(!is.infinite(C))]
+
   if(length(which(!is.na(C)))>1){
     estimate<-c(mean(C),quantile(C,probs=c(0.025,0.5,0.975)))
     names(estimate)[1]<-"Mean"
@@ -4274,8 +4693,19 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
   if(length(levels(as.factor(C)))>1){ # avoid to estimate unvarying
     # fit the density of C, avoiding errors with overspread C 
     Nthin<-1
-    while(class(densfit<-try(locfit(~C[seq(1,length(C),Nthin)])))=="try-error" && Nthin<length(C)/100){
-      Nthin<-Nthin*10
+    subset <- 1:length(C)
+    p<-0.001
+    while(class(densfit<-try(locfit(~C[subset])))=="try-error" 
+	  && length(subset)>0.90*length(C)){
+	    # quantile based 
+	    warning(paste("locfit diverge, try to cut",p," on each extreme"))
+	    quant <- quantile(C,probs=c(p,1-p))
+	    p <- 2*p
+	    subset <- which(C>min(quant) & C<max(quant))
+	    
+	    # # old: add in if: && Nthin<length(C)/100
+	    # Nthin<-Nthin*10
+	    # subset<-seq(1,length(C),Nthin)
     }
     attributes(densfit)$Nthin<-Nthin
     if(Nthin>1){
@@ -4284,33 +4714,41 @@ get.estimate<-function(C,name="",visu=TRUE,leg=TRUE,true.val=NULL,xlim = NULL){
 
     vals<-predict(densfit,estimate)
     if(visu){
-	if(is.null(xlim))
-      		plot(densfit,xlab=name)
-	else
-		plot(densfit, xlab=name, xlim = xlim)
-      lines(rep(estimate[1],2),c(0,vals[1]),col="black")
-      for(q in 2:4){
-	lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
-      }
-      if(!is.null(true.val)){
-	abline(v=true.val,col="green")
-      }
+	    if(is.null(xlim)){
+		    xlim = range(C)
+	    }
+	    x<-seq(xlim[1],xlim[2],length.out=1000)
+	    y<-predict(densfit,x)
+	    if(add){
+	    lines(x,y,type="l",...)
+	    }else{
+	    plot(x,y,type="l",xlab=name,ylab="density", xlim = xlim,ylim=range(y),...)
+	    }
+	    if(visuQuant){
+		    lines(rep(estimate[1],2),c(0,vals[1]),col="black")
+		    for(q in 2:4){
+			    lines(rep(estimate[q],2),c(0,vals[q]),col="blue")
+		    }
+		    if(!is.null(true.val)){
+			    abline(v=true.val,col="green")
+		    }
+	    }
 
-      if(leg){ # legend
-	# legend
-	if(mean(densfit$box)>estimate[3]){
-	  loc<-"topright"
-	}else{
-	  loc<-"topleft"
-	}
-	leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
-	leg.col<-c("blue","black")
-	if(!is.null(true.val)){
-	  leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
-	  leg.col<-c(leg.col,"green")
-	}
-	legend(loc,leg.text,col=leg.col,lty=1)
-      }
+	    if(leg){ # legend
+		    # legend
+		    if(mean(densfit$box)>estimate[3]){
+			    loc<-"topright"
+		    }else{
+			    loc<-"topleft"
+		    }
+		    leg.text<-c(paste("CrI/med.",round(estimate[3],2)),paste("Mean",round(estimate[1],2)))
+		    leg.col<-c("blue","black")
+		    if(!is.null(true.val)){
+			    leg.text<-c(leg.text,paste("True val.(",true.val,")",sep=""))
+			    leg.col<-c(leg.col,"green")
+		    }
+		    legend(loc,leg.text,col=leg.col,lty=1)
+	    }
     }
   }else{
     densfit<-NULL

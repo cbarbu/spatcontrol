@@ -26,22 +26,21 @@ cleanUnicodes<-function(unicodes){
 ########################
 # plot shapefiles of locality limits
 ########################
-## regenerate the R object file:
+## regenerate the R object file: (from shp files created from kml in qgis)
 # library(maptools)
 # mapLim<-readShapeSpatial("LocalitiesBoundaries/Arequipa_limits")
-# mapLim@data
-# mapLim@polygons
 
 # # remove the points at the end of the Code if needed
 # names(mapLim@data)<-c("Name","Code")
 # mapLim@data$Code<-gsub("\\.$","",mapLim@data$Code)
 # 
 # # split provincia, district and localily level codes
-# mapLim@data$P<-gsub("^[0-9]*\\.","",mapLim@data$Code)
+# mapLim@data$codeD<-gsub("\\.[0-9]*[A-Z]*$","",mapLim@data$Code)
+
 # # set the projection system
 # proj4string(mapLim)<-CRS("+proj=longlat +datum=WGS84")
 
-# save it as a separate file
+# # save it as a separate file
 # save(mapLim,file="ArequipaLim.img")
 
 ## can then be load using simply

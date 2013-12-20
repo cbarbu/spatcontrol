@@ -1,5 +1,6 @@
 # example for getGraphicsEvent() from the help()
 # adapted to add zoom capability
+library("testthat")
 
 graphics.off()
 
@@ -116,12 +117,22 @@ setNav<-function(){
   #--------------------
   multipanc<-function(ancien,fact,lim){
     # return new range according to ancient range and factor of magnification
-    # cat("ancien",ancien,"fact",fact,"lim:\n")
+    cat("ancien",ancien,"fact",fact,"lim:\n")
     # print(lim)
     meanRange<-mean(ancien)
     newRange<-ancien+(1/fact-1)*(ancien-meanRange)
     return(newRange);
   }
+
+  dragmousedown <- function(buttons, x, y) {
+    startx <<- x
+    starty <<- y
+    devset()
+    usr <<- par("usr")
+    eventEnv$onMouseMove <- dragmousemove
+    NULL
+  }
+
   mouseDownNavig <- function(buttons, x, y) {
     startx <<- x
     starty <<- y
@@ -154,25 +165,31 @@ setNav<-function(){
     xlim<<-usr[1:2]-deltax
     ylim <<-usr[3:4]-deltay
     plot(..., xlim = xlim, xaxs = "i",
-	 ylim = ylim, yaxs = "i")
+	 ylim = ylim, yaxs = "i",pch=".")
     NULL
   }
   zoomDyn <- function(buttons, x, y) {
     devset()
+    usr <<- par("usr")
     mevent<-labelButton(buttons)
     if(mevent=="scrollDown"){
-      fact<-0.7
-    }else if(mevent=="scrollUp"){
       fact<-1.5
+    }else if(mevent=="scrollUp"){
+      fact<-0.7
     }else {
       deltay <- diff(grconvertY(c(starty, y), "ndc", "user"))
       fact<-max(min(1+deltay/(usr[2]-usr[1]),10),0.1)
     }
-    cat("fact:",fact,"\n")
-    xlim<<-multipanc(usr[1:2],fact,1) # 1 is dummy
-    ylim<<-multipanc(usr[3:4],fact,1) # 1 is dummy
+    xuser<-grconvertX(x, "ndc", "user")
+    yuser<-grconvertY(y, "ndc", "user")
+    xlim<<- (1-fact)*xuser+fact*usr[1:2]
+    ylim<<- (1-fact)*yuser+fact*usr[3:4]
+    # zoomplot.zoom(fact=fact)
+    # cat("fact:",fact,"\n")
+    # cat(usr[1:2],"->",xlim,"\n")
+    # cat(usr[3:4],"->",ylim,"\n")
     plot(..., xlim = xlim, xaxs = "i",
-	 ylim = ylim, yaxs = "i")
+ 	 ylim = ylim, yaxs = "i",pch=".")
     NULL
   }
 
@@ -197,11 +214,10 @@ setNav<-function(){
 	  filterPoint<-filterPoint[grep(currentTriangle[[i]],triangles[filterPoint])]
 	  i<-i+1
   }
-    
 
-    triangles[[length(triangles)+1]]<<-currentTriangle # add it
+  triangles[[length(triangles)+1]]<<-currentTriangle # add it
 
-    polygon(coords$x[currentTriangle],coords$y[currentTriangle]) # plot it
+  polygon(coords$x[currentTriangle],coords$y[currentTriangle]) # plot it
   }
   mouseDownEdit<-function(buttons,x,y){
     startx <<- x
@@ -312,6 +328,13 @@ setNav<-function(){
 			   onMouseUp = mouseup,
 			   onMouseMove = NULL,
 			   onKeybd = keydown)
+
+#   setGraphicsEventHandlers(prompt = "Click and drag, hit q to quit",
+# 			   onMouseDown = dragmousedown,
+# 			   onMouseUp = mouseup,
+# 			   onKeybd = keydown)
+# 
+
   eventEnv <<- getGraphicsEventEnv()
 }
 meshEdit<-function(coords,triangles){
@@ -324,16 +347,16 @@ meshEdit<-function(coords,triangles){
 
 
 
-# #===============================
-# # Main loop
-# #===============================
-# X11(type = "Xlib")
-# savepar <- par(ask = FALSE)
-# 
-# triangles<-list()
-# coords<-as.data.frame(cbind(rnorm(1000), rnorm(1000)))
-# names(coords)<-c("x","y")
-# # This currently only works on the Windows
-# # and X11(type = "Xlib") screen devices...
-# meshEdit()
-# par(savepar)
+#===============================
+# Main loop
+#===============================
+X11(type = "Xlib")
+savepar <- par(ask = FALSE)
+
+triangles<-NULL# list()
+coords<-as.data.frame(cbind(rnorm(1000), rnorm(1000)))
+names(coords)<-c("x","y")
+# This currently only works on the Windows
+# and X11(type = "Xlib") screen devices...
+meshEdit(coords,triangles)
+par(savepar)

@@ -80,6 +80,7 @@ echo "initial out_fold: $out_fold"
 
 # copy needed files
 function copy_with_dep {
+echo coying $1
 if [[ "$1" != "." ]] ; then
 	echo "PWD: $PWD 1: $1  2: $2"
 	local oldDir="$PWD"
@@ -103,6 +104,7 @@ if [[ "$1" != "." ]] ; then
 		list_files=$(grep "\<"$keyword"\>.*(" "$1" | grep -v -e "#.*"$keyword | sed -e "s/^.*\"\(.*\)\".*/\1/") || list_files=" "
 		echo "found files: $list_files" 
 		if [[ $list_files != " " ]] ; then
+		  echo Dealing with $list_files
 			# echo cp --parents $list_files $2
 			if [[ $newDir != "." ]] ; then
 				echo "Moving to $newDir"
@@ -110,7 +112,9 @@ if [[ "$1" != "." ]] ; then
 			fi
 			for file in $list_files
 			do
+			  echo Dealing with $file
 				if [[ -e $file ]] ; then 
+				  echo Why not
 					copy_with_dep "$file" "$out_dir"
 				fi
 				if [[ "${file##*.}" == "so" ]] ; then 

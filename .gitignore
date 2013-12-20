@@ -8,6 +8,9 @@ output.lst
 *.o
 *.swp
 *.swo
+*.Rcheck
+*.zip
+*.tar.gz
 OriginalDataPaucarpata.csv
 EndSampleImage.img
 cofactors.txt
