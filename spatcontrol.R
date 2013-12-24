@@ -2658,6 +2658,31 @@ rmvnorm.prec.pseudo <- function (n, mu = rep(0, nrow(Q)), Q, Rstruct = NULL,give
     return(t(nu + mu))
 }
 
+sample_u_Andrew <- function(y0,ku,Q,cholR=NULL,cntr=0,prcn=1e-4){
+  dmsn <- dim(Q)[1]
+  R <- ku*Q;
+  diag.spam(R) <- diag.spam(R) + 1;
+  R <- cbind(R, rep(1,dmsn));
+  R <- rbind(R, c(rep(1,dmsn), dmsn + prcn));
+
+  if(is.null(cholR)){
+    cholR <- chol.spam(R, memory=list(nnzcolindices=4e6));
+  }else{
+    cholR <- update.spam.chol.NgPeyton(cholR,R);
+  }
+  rm(R)
+  x <- rnorm(n=(dmsn+1), mean=0, sd=1);
+  x_cntr <- y0;
+  x_cntr <- c(x_cntr, sum(x_cntr) + (cntr*prcn));
+  x_cntr <- backsolve(cholR, forwardsolve(cholR, x_cntr));
+  x <- backsolve(cholR,x);
+  x <- x + x_cntr;
+  x <- krig(dmsn=dmsn, cholR=cholR, x=x);
+  u <- x[1:dmsn] + x[(dmsn+1)];
+  return(u)
+}
+
+
 sample_u <- function(dimension,Q,K,y, cholQ=NULL, prior_u_mean = rep(0, dimension)){
 
 	
@@ -3117,6 +3142,7 @@ acceptKu={}
 ## ok for both Kv and Kc (and could be used for Ku with dim<-dimension-1)
 
 sampleKu <- function(dim,Q,u,Kushape,Kuscale) {
+  u<-u-mean(u)
 	pos.shape <- (0.5*(dim-1) + Kushape);
 	pos.scale <- (0.5*as.numeric(u %*% Q %*% u) + Kuscale^(-1))^(-1);
 	Ku <- rgamma(n=1, shape=pos.shape, scale=pos.scale);
@@ -4157,7 +4183,9 @@ while (num.simul <= nbiterations || (!adaptOK && final.run)) {
 	if(fit.OgivP == "probit"){
 	  u<-sample_u_with_o(dimension,Q,K,y-wnotr-intercept,o,io, fo=fo, cholQ=cholQ,prior_u_mean=muPrior)
 	}else{
-	  u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, muPrior);
+	  # u<-sample_u(dimension,Q,K,y-wnotr-intercept,cholQ, muPrior);
+
+	  u<-sample_u_Andrew(y-wnotr-intercept,K[1],Q)
 	}
 	wnoc<-u
 	if(fit.spatstruct){
