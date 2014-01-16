@@ -905,7 +905,7 @@ boxplot.free<-function(x,breaks=c(0.025,0.25,0.5,0.75,0.975),rm.out=TRUE,...){
 ### plot of x,y points with a z scale of color black to yellow
 # base: under that coded black
 # top: above that coded yellow
-plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,add=FALSE,...){
+plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,add=FALSE,asp=1,...){
 	# if z has NA remove it
 	sel<-which(!is.na(z))
 	z<-z[sel]
@@ -931,11 +931,11 @@ plot_reel<-function(x,y,z,base=-1,top=1,asmax=top,asmin=base,zp=FALSE,add=FALSE,
 	blue<-z_plot*0
 	zcol<-rgb(red,green,blue)
 	if(exists("zoom_loaded") && zp==TRUE){
-		zplot(x,y,pch=15,asp=1,zs=0,...)
+		zplot(x,y,pch=15,asp=asp,zs=0,...)
 		zlines(x,y,pch=15,type="p",col=zcol,cex=0.6,zs=0)
 	}else{
 		if(add==FALSE){
-		plot(x,y,pch=15,asp=1,...)
+		plot(x,y,pch=15,asp=asp,...)
 		}
 		lines(x,y,pch=15,type="p",col=zcol,cex=0.6)
 	}
