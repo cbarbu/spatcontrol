@@ -703,8 +703,12 @@ pseudo_inv<-function(A){
 #--------------------------------------
 # Plotting
 #--------------------------------------
-# source("zoom.r") # this should a separate package
 source("bfplot.R")
+# Plots a place holder
+PlotPlaceHolder <- function(displayText){
+  plot(1,type="n",yaxt="n",xaxt="n",ylab="",xlab="")
+  text(1,displayText)
+}
 
 strongColors<-c("black","red","green3","blue","skyblue","magenta","yellow","grey","orange","slategrey","navyblue","darkgreen")
 
