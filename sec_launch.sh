@@ -30,6 +30,8 @@ echo "let's go"
 # parameters
 outputs_folder="../outputs/"
 paramFile="parameters_sampler.R"
+keywords_lines_to_get_R="source read load compilLoad" 
+keywords_lines_to_get_C="#include" 
 
 # create output $outputs_folder
 if [[ ! -e "$outputs_folder" ]] ; then
@@ -80,11 +82,12 @@ echo "initial out_fold: $out_fold"
 
 # copy needed files
 function copy_with_dep {
-echo coying $1
-if [[ "$1" != "." ]] ; then
-	echo "PWD: $PWD 1: $1  2: $2"
+local current="$1"
+echo coying $current
+if [[ "$current" != "." ]] ; then
+	echo "PWD: $PWD 1: $current  2: $2"
 	local oldDir="$PWD"
-	local newDir=$(dirname "$1")
+	local newDir=$(dirname "$current")
 	if [[ "$newDir" != "." ]] ; then
 		local out_dir="$2$newDir/"
 		echo "New out_dir:$out_dir"
@@ -96,12 +99,27 @@ if [[ "$1" != "." ]] ; then
 		local out_dir="$2"
 	fi
 	echo "out_dir: $out_dir"
-	cp "$1" "$out_dir"
-	keywords_lines_to_get="source read load" 
+	cp "$current" "$out_dir"
+	local extension="${1##*.}"
+	if [[ $extension == "c" ]] ; then 
+		local keywords_lines_to_get=$keywords_lines_to_get_C
+		local language="c"
+	elif [[ $extension == "R" || $extension == "r" ]] ; then  
+		local keywords_lines_to_get=$keywords_lines_to_get_R
+		local language="R"
+	else
+		local keywords_lines_to_get=""
+	fi
+
 	for keyword in $keywords_lines_to_get
 	do
-		echo "keyword: $keyword in $1"
-		list_files=$(grep "\<"$keyword"\>.*(" "$1" | grep -v -e "#.*"$keyword | sed -e "s/^.*\"\(.*\)\".*/\1/") || list_files=" "
+		echo "keyword: $keyword in $current"
+		if [[ $language == "R" ]] ; then
+			# list_files=$(grep "\<"$keyword"\>.*(" "$current" | grep -v -e "#.*"$keyword | sed -e "s/^.*\"\(.*\)\".*/\1/") || list_files=" "
+			list_files=$(grep "\<"$keyword"\>.*(" "$current" | grep -v -e "#.*"$keyword | sed s/"#.*"//g | awk -F "\"" '{for (i=2;i<=NF;i+=2) print $i}')  || list_files=" "
+		elif [[ $language == "c" ]] ; then 
+			list_files=$(grep "$keyword" "$current" | grep -v -e "\/\/.*"$keyword | sed -e "s/^.*\"\(.*\)\".*/\1/") || list_files=" "
+		fi
 		echo "found files: $list_files" 
 		if [[ $list_files != " " ]] ; then
 		  echo Dealing with $list_files
@@ -124,12 +142,14 @@ if [[ "$1" != "." ]] ; then
 					fi
 				fi
 			done
+			echo back to $current
 			cd "$oldDir"
 		fi
 	done
 fi
 return 
 }
+set -x
 copy_with_dep "$mast" "$out_fold"
 echo "come on"
 

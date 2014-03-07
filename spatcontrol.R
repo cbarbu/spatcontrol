@@ -74,11 +74,9 @@ compilLoad<-function(sourcef,options=""){
 }
 # importOk <-compilLoad("spatcontrol/spatcontrol.c")
 
-
 importOk<-try(dyn.load("spatcontrol.so"),silent=TRUE)
 if(class(importOk)=="try-error"){
 	importOk <-compilLoad("spatcontrol.c")
-	
 }
 
 #===============================
