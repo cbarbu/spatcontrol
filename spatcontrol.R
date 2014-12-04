@@ -1014,6 +1014,7 @@ adjust.lim<-function(limsmall,limbig,steps=NULL,stepsize=NULL){
 }
 grid.from.sample<-function(known.x,known.y,known.z,
 	kern=expKernel,  # type of kernel
+	cumul=FALSE, # if TRUE use cumulated values in spite of average
 	f=NULL, 	# bandwith
 	T=1, 	# not 1 means impact factor of streets
 	xlim=NULL, # artificial limits for the extrapolation
@@ -1072,10 +1073,14 @@ grid.from.sample<-function(known.x,known.y,known.z,
 	# get normalized by ToGuess weights
 	sumR<-drop(weightsKnownInToGuessRaw%*%rep(1,dim(weightsKnownInToGuessRaw)[2]))
 	isolated<-which(sumR<0.01)
-	sumRsimple<-sumR
-	sumRsimple[isolated]<-1
-	NormMat<-diag.spam(1/sumRsimple)
-	weightsKnownInToGuess<-NormMat%*%weightsKnownInToGuessRaw
+	if(cumul){
+	    weightsKnownInToGuess <- weightsKnownInToGuessRaw
+	}else{
+	    sumRsimple<-sumR
+	    sumRsimple[isolated]<-1
+	    NormMat<-diag.spam(1/sumRsimple)
+	    weightsKnownInToGuess<-NormMat%*%weightsKnownInToGuessRaw
+	}
 
 	ToGuess.z<-weightsKnownInToGuess%*%known.z
 	ToGuess.z[isolated]<- NA
