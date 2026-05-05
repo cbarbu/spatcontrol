@@ -3428,7 +3428,7 @@ ORtoPrevDenominator <- function(or,prevNumerator){
   return(prevDenominator)
 }
 
-#' @title main function for fit of GMRF to incomplete binary data
+#' @title main function to fit a GMRF to incomplete binary data
 #' @description The main function fitting the infestation field and possibly the spatial autocorrelation, 
 #'          inspectors quality and number of iterations
 fit.spatautocorel<-function(db=NULL,
@@ -3567,7 +3567,8 @@ fit.spatautocorel<-function(db=NULL,
 
   ## functions
   # cat("generate distance matrix\n")
-  spam.options(nearestdistnnz=c(9058076,400))
+  # old way: spam.options(nearestdistnnz=c(9058076,400))
+  options(spam.nearestdistnnz=c(9058076,400))
   dist_mat <-nearest.dist(x=db[,c("X","Y")], y=NULL, method="euclidian", delta=threshold, upper=NULL);          
   diag(dist_mat)<- rep(0,dim(dist_mat)[1])
   cat("\nAccount for known barriers: ")

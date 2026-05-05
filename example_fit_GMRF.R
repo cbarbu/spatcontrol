@@ -4,7 +4,7 @@
 # As this code is continually developped 
 # request for an updated version are welcome at corentin.barbu [gmail]
 # get necessary functions
-source("spatcontrol/spatcontrol.R",local=TRUE)
+source("spatcontrol.R",local=TRUE)
 
 #==================
 # Data preparation
@@ -67,8 +67,14 @@ source("parameters_extrapol.R")
 
 # Full
 
-dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=600,cofactors=c("CU","PE","oanimal","I.NO","P.NO"))
-# Nota: for a reasonable fit you should better use nbiterations=500000 or -1 
+dbFit<-fit.spatautocorel(db=db[which(db$fitSet==1),],nbiterations=600,
+                         cofactors=c("CU", # cuy (cochon d'inde)
+                                     "PE", # Perro (chien)
+                                     "oanimal", # other animals
+                                     "I.NO","P.NO"))
+# 3mn for 600 iterations on Cygne without "speed up options"
+# 1.5 mn for 600 iterations on Cygne using the "speed up options"
+# Nota: for a reasonable fit you should  use nbiterations=500000 or -1 
 # for autostopping
 
 samples<-trace.mcmc()

@@ -116,7 +116,10 @@ visu.progression<-FALSE # turn on/off the mapping at each iterations
 			# of the results (SLOW)
 
 # speed-up parameters for spam package
-spam.options(cholsymmetrycheck=FALSE, safemode=c(FALSE,FALSE,FALSE))
+# older : spam.options(cholsymmetrycheck=FALSE, safemode=c(FALSE,FALSE,FALSE))
+# newer:
+options(spam.cholsymmetrycheck=FALSE)
+options(spam.safemodevalidity = FALSE) # exists but may not be the same as safemode=rep(FALSE,3))
 powerboost() ## not sure it is usefull after spam.options
 
 ## not to be changed after this line ####
